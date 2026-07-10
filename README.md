@@ -22,6 +22,32 @@ pnpm validate:workflows
 pnpm validate
 ```
 
+## 로컬 MVP 실행
+
+```bash
+cp .env.example .env
+pnpm dev
+```
+
+최소 실행에 필요한 값:
+
+- `DISCORD_BOT_USER_ID`
+- `DISCORD_DEDICATED_CHANNEL_ID`
+- `N8N_WEBHOOK_SECRET`
+
+로컬 HTTP 엔드포인트:
+
+- `GET /health`
+- `POST /discord/message`
+- `POST /webhooks/news-briefing`
+
+PostgreSQL/pgvector:
+
+```bash
+docker compose up -d postgres
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/hermes pnpm db:migrate
+```
+
 ## 구조
 
 - `src/domain`: Role, Memory, Soul, Workflow, MCP 같은 핵심 계약

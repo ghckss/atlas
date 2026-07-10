@@ -2,8 +2,10 @@
 
 ## 환경변수
 
+- `PORT`
 - `DATABASE_URL`
 - `DISCORD_BOT_TOKEN`
+- `DISCORD_BOT_USER_ID`
 - `DISCORD_GUILD_ID`
 - `DISCORD_DEDICATED_CHANNEL_ID`
 - `DISCORD_OWNER_USER_IDS`
@@ -43,3 +45,21 @@ pnpm validate
 ```
 
 검증은 TypeScript typecheck, Node test runner, n8n workflow JSON 검증을 포함한다.
+
+## 로컬 MVP 런타임
+
+```bash
+cp .env.example .env
+pnpm dev
+```
+
+초기 runtime은 외부 SDK 없이 HTTP endpoint로 Discord/n8n 경계를 시뮬레이션한다. 실제 Discord Gateway 연결은 다음 단계에서 `src/interfaces/discord` adapter에 붙인다.
+
+## 로컬 PostgreSQL
+
+```bash
+docker compose up -d postgres
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/hermes pnpm db:migrate
+```
+
+`db:migrate`는 로컬에 `psql` 명령이 있어야 실행된다.

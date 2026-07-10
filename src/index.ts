@@ -5,6 +5,7 @@ export * from "./config";
 export * from "./domain";
 export * from "./infrastructure";
 export * from "./interfaces";
+export * from "./runtime";
 
 export function health(): { status: "ok"; service: string } {
   return {
