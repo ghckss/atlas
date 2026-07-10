@@ -1,0 +1,172 @@
+{
+  "name": "Hermes News Briefing",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.NEWS_SOURCE_URLS}}",
+        "responseFormat": "json"
+      },
+      "id": "collect-news",
+      "name": "Collect News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.HERMES_NEWS_BRIEFING_WEBHOOK_URL}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-n8n-webhook-secret",
+              "value": "={{$env.N8N_WEBHOOK_SECRET}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "articles",
+              "value": "={{$json.articles}}"
+            },
+            {
+              "name": "audience",
+              "value": "personal"
+            },
+            {
+              "name": "locale",
+              "value": "ko"
+            }
+          ]
+        },
+        "responseFormat": "json"
+      },
+      "id": "ask-hermes-summary",
+      "name": "Ask Hermes Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.shouldSend}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "has-briefing",
+      "name": "Has Briefing",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "guildId": "={{$env.DISCORD_GUILD_ID}}",
+        "channelId": "={{$env.NEWS_BRIEFING_DISCORD_CHANNEL_ID}}",
+        "content": "={{$json.discordMessage}}"
+      },
+      "id": "send-discord",
+      "name": "Send Discord",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Daily Schedule": {
+      "main": [
+        [
+          {
+            "node": "Collect News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect News": {
+      "main": [
+        [
+          {
+            "node": "Ask Hermes Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask Hermes Summary": {
+      "main": [
+        [
+          {
+            "node": "Has Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Briefing": {
+      "main": [
+        [
+          {
+            "node": "Send Discord",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "initial-news-briefing",
+  "meta": {
+    "description": "Collect news, ask Hermes for a summary, and send the briefing to Discord."
+  }
+}

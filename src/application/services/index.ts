@@ -1,4 +1,5 @@
 export * from "./hermes-chat-service";
 export * from "./memory-context-service";
+export * from "./news-briefing-service";
 export * from "./soul-pipeline";
 export * from "./task-planner";

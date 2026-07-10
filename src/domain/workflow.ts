@@ -26,6 +26,8 @@ export const newsBriefingWorkflow: WorkflowAsset = {
   documentationPath: "workflows/news-briefing/README.md",
   environmentVariables: [
     "N8N_WEBHOOK_SECRET",
+    "HERMES_NEWS_BRIEFING_WEBHOOK_URL",
+    "NEWS_SOURCE_URLS",
     "NEWS_BRIEFING_DISCORD_CHANNEL_ID"
   ],
   failureHandling: [
