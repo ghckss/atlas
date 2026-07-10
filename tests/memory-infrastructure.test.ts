@@ -128,7 +128,9 @@ test("Mem0 adapter forwards records through an explicit client boundary", async 
       calls.push(`add:${request.record.id}`);
     },
     async search(request) {
-      calls.push(`search:${request.scope.namespaces.join(",")}:${request.limit}`);
+      calls.push(
+        `search:${request.scope.namespaces.join(",")}:${request.limit}:${request.minScore}`
+      );
       return [result];
     }
   });
@@ -147,9 +149,9 @@ test("Mem0 adapter forwards records through an explicit client boundary", async 
         namespaces: ["personal"]
       },
       embedding,
-      { limit: 3 }
+      { limit: 3, minScore: 0.8 }
     ),
     [result]
   );
-  assert.deepEqual(calls, ["add:memory-1", "search:personal:3"]);
+  assert.deepEqual(calls, ["add:memory-1", "search:personal:3:0.8"]);
 });

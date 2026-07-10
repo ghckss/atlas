@@ -15,6 +15,7 @@ export interface Mem0SearchRequest {
   scope: MemorySearchScope;
   embedding: EmbeddingVector;
   limit: number;
+  minScore?: number;
 }
 
 export interface Mem0Client {
@@ -43,7 +44,8 @@ export class Mem0MemoryAdapter implements MemoryRepository {
     return this.client.search({
       scope,
       embedding: queryEmbedding,
-      limit: options.limit
+      limit: options.limit,
+      minScore: options.minScore
     });
   }
 }
