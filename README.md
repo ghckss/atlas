@@ -41,6 +41,14 @@ pnpm dev
 - `POST /discord/message`
 - `POST /webhooks/news-briefing`
 
+실제 Discord Gateway 연결:
+
+```bash
+DISCORD_ENABLE_GATEWAY=true pnpm dev
+```
+
+Gateway 연결에는 `DISCORD_BOT_TOKEN`, `DISCORD_BOT_USER_ID`, `DISCORD_DEDICATED_CHANNEL_ID`가 필요합니다. Discord Developer Portal에서 Message Content Intent도 활성화해야 mention 메시지 내용을 읽을 수 있습니다.
+
 PostgreSQL/pgvector:
 
 ```bash

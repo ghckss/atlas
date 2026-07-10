@@ -15,7 +15,21 @@ test("runtime config loads required local MVP settings", () => {
   assert.equal(config.port, 3100);
   assert.equal(config.discord.botUserId, "bot-1");
   assert.deepEqual(config.discord.ownerUserIds, ["owner-1", "owner-2"]);
+  assert.equal(config.discord.enableGateway, false);
   assert.equal(config.n8n.webhookSecret, "secret");
+});
+
+test("runtime config can enable Discord Gateway with a token", () => {
+  const config = loadRuntimeConfig({
+    DISCORD_BOT_TOKEN: "token",
+    DISCORD_BOT_USER_ID: "bot-1",
+    DISCORD_ENABLE_GATEWAY: "true",
+    DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
+    N8N_WEBHOOK_SECRET: "secret"
+  });
+
+  assert.equal(config.discord.token, "token");
+  assert.equal(config.discord.enableGateway, true);
 });
 
 test("runtime config rejects invalid port and missing secrets", () => {

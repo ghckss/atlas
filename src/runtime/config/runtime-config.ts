@@ -6,10 +6,12 @@ export interface RuntimeConfig {
   port: number;
   databaseUrl: string;
   discord: {
+    token?: string;
     botUserId: string;
     guildId?: string;
     dedicatedChannelId: string;
     ownerUserIds: readonly string[];
+    enableGateway: boolean;
   };
   n8n: {
     webhookSecret: string;
@@ -31,13 +33,15 @@ export function loadRuntimeConfig(
     databaseUrl:
       env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/hermes",
     discord: {
+      token: env.DISCORD_BOT_TOKEN,
       botUserId: requireValue(env.DISCORD_BOT_USER_ID, "DISCORD_BOT_USER_ID"),
       guildId: env.DISCORD_GUILD_ID,
       dedicatedChannelId: requireValue(
         env.DISCORD_DEDICATED_CHANNEL_ID,
         "DISCORD_DEDICATED_CHANNEL_ID"
       ),
-      ownerUserIds: parseCsv(env.DISCORD_OWNER_USER_IDS)
+      ownerUserIds: parseCsv(env.DISCORD_OWNER_USER_IDS),
+      enableGateway: env.DISCORD_ENABLE_GATEWAY === "true"
     },
     n8n: {
       webhookSecret: requireValue(env.N8N_WEBHOOK_SECRET, "N8N_WEBHOOK_SECRET")

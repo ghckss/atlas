@@ -6,6 +6,7 @@
 - `DATABASE_URL`
 - `DISCORD_BOT_TOKEN`
 - `DISCORD_BOT_USER_ID`
+- `DISCORD_ENABLE_GATEWAY`
 - `DISCORD_GUILD_ID`
 - `DISCORD_DEDICATED_CHANNEL_ID`
 - `DISCORD_OWNER_USER_IDS`
@@ -53,7 +54,9 @@ cp .env.example .env
 pnpm dev
 ```
 
-초기 runtime은 외부 SDK 없이 HTTP endpoint로 Discord/n8n 경계를 시뮬레이션한다. 실제 Discord Gateway 연결은 다음 단계에서 `src/interfaces/discord` adapter에 붙인다.
+초기 runtime은 HTTP endpoint로 Discord/n8n 경계를 시뮬레이션할 수 있고, `DISCORD_ENABLE_GATEWAY=true`일 때 실제 Discord Gateway adapter도 함께 실행한다.
+
+실제 Discord Gateway를 켜려면 `DISCORD_ENABLE_GATEWAY=true`를 설정한다. Bot token, bot user id, dedicated channel id가 필요하며, Discord Developer Portal에서 Message Content Intent를 활성화해야 한다.
 
 ## 로컬 PostgreSQL
 
