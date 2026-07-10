@@ -201,7 +201,7 @@ test("n8n workflow client creates or updates workflows by name", async () => {
     },
     {
       url: "http://n8n.local/api/v1/workflows/workflow-1",
-      method: "PATCH",
+      method: "PUT",
       body: {
         name: "Existing Workflow",
         nodes: [],

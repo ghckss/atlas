@@ -31,7 +31,7 @@ for (const workflowName of readdirSync(workflowsDir)) {
 
   if (existing?.id) {
     await request(`/api/v1/workflows/${existing.id}`, {
-      method: "PATCH",
+      method: "PUT",
       body: JSON.stringify(workflowPayload)
     });
     console.log(`Updated n8n workflow: ${workflow.name}`);

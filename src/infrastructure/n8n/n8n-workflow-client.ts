@@ -67,7 +67,7 @@ export class N8nWorkflowClient {
 
     if (existing) {
       return this.request(`/api/v1/workflows/${existing.id}`, {
-        method: "PATCH",
+        method: "PUT",
         body: JSON.stringify(workflowPayload)
       });
     }
