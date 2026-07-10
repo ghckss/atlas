@@ -24,6 +24,13 @@ export interface RuntimeConfig {
   };
   news: {
     sourceUrls: readonly string[];
+    providers: readonly string[];
+    query: string;
+    googleLanguage: string;
+    googleCountry: string;
+    naverClientId?: string;
+    naverClientSecret?: string;
+    naverDisplay: number;
     collectionTimeoutMs: number;
   };
 }
@@ -36,6 +43,8 @@ export interface RuntimeUserConfig {
 export function loadRuntimeConfig(
   env: Record<string, string | undefined>
 ): RuntimeConfig {
+  const newsSourceUrls = parseCsv(env.NEWS_SOURCE_URLS);
+
   return {
     nodeEnv: env.NODE_ENV ?? "development",
     logLevel: env.LOG_LEVEL ?? "info",
@@ -63,7 +72,17 @@ export function loadRuntimeConfig(
       baseUrl: env.MEM0_BASE_URL ?? "https://api.mem0.ai"
     },
     news: {
-      sourceUrls: parseCsv(env.NEWS_SOURCE_URLS),
+      sourceUrls: newsSourceUrls,
+      providers: parseNewsProviders(env.NEWS_PROVIDERS, newsSourceUrls),
+      query: env.NEWS_QUERY ?? "AI",
+      googleLanguage: env.NEWS_GOOGLE_LANGUAGE ?? "ko",
+      googleCountry: env.NEWS_GOOGLE_COUNTRY ?? "KR",
+      naverClientId: env.NAVER_CLIENT_ID,
+      naverClientSecret: env.NAVER_CLIENT_SECRET,
+      naverDisplay: parsePositiveInteger(
+        env.NEWS_NAVER_DISPLAY ?? "10",
+        "NEWS_NAVER_DISPLAY"
+      ),
       collectionTimeoutMs: parsePositiveInteger(
         env.NEWS_COLLECTION_TIMEOUT_MS ?? "5000",
         "NEWS_COLLECTION_TIMEOUT_MS"
@@ -117,4 +136,21 @@ function parseCsv(value: string | undefined): readonly string[] {
     .split(",")
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
+}
+
+function parseNewsProviders(
+  value: string | undefined,
+  sourceUrls: readonly string[]
+): readonly string[] {
+  const providers = parseCsv(value);
+
+  if (providers.length > 0) {
+    return providers;
+  }
+
+  if (sourceUrls.length > 0) {
+    return ["source-url"];
+  }
+
+  return ["google-news"];
 }

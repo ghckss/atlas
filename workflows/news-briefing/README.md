@@ -12,7 +12,10 @@
 ## 입력
 
 - `HERMES_NEWS_COLLECTION_URL`: Hermes runtime의 뉴스 수집 엔드포인트
-- Hermes runtime은 `NEWS_SOURCE_URLS`에 지정된 JSON 뉴스 source들을 수집해 article 목록으로 정규화한다.
+- Hermes runtime은 `NEWS_PROVIDERS`와 `NEWS_QUERY`를 기준으로 뉴스를 수집해 article 목록으로 정규화한다.
+- `google-news` provider는 Google News RSS를 사용한다.
+- `naver-news` provider는 Naver Search API를 사용하며 `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`이 필요하다.
+- `NEWS_SOURCE_URLS`는 수동 JSON 또는 RSS source를 추가할 때만 사용한다.
 - 수집 결과는 `{ "articles": [...] }` 형태를 기대한다.
 - 각 article은 최소 `title`, `url`을 포함해야 한다.
 
@@ -28,6 +31,13 @@
 - `N8N_WEBHOOK_SECRET`
 - `HERMES_NEWS_COLLECTION_URL`
 - `HERMES_NEWS_BRIEFING_WEBHOOK_URL`
+- `NEWS_PROVIDERS`
+- `NEWS_QUERY`
+- `NEWS_GOOGLE_LANGUAGE`
+- `NEWS_GOOGLE_COUNTRY`
+- `NAVER_CLIENT_ID`
+- `NAVER_CLIENT_SECRET`
+- `NEWS_NAVER_DISPLAY`
 - `NEWS_SOURCE_URLS`
 - `DISCORD_GUILD_ID`
 - `NEWS_BRIEFING_DISCORD_CHANNEL_ID`

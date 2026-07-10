@@ -37,7 +37,16 @@ export async function handleRuntimeHttpRequest(
   }
 
   if (request.method === "GET" && request.path === "/news/articles") {
-    const articles = await runtime.newsCollector.collect(config.news.sourceUrls);
+    const articles = await runtime.newsCollector.collect({
+      sourceUrls: config.news.sourceUrls,
+      providers: config.news.providers,
+      query: config.news.query,
+      googleLanguage: config.news.googleLanguage,
+      googleCountry: config.news.googleCountry,
+      naverClientId: config.news.naverClientId,
+      naverClientSecret: config.news.naverClientSecret,
+      naverDisplay: config.news.naverDisplay
+    });
 
     return {
       status: 200,
