@@ -1,3 +1,4 @@
+export * from "./github-assistant-service";
 export * from "./hermes-chat-service";
 export * from "./memory-context-service";
 export * from "./news-briefing-service";

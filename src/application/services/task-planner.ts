@@ -62,8 +62,24 @@ function selectSouls(request: string): readonly SoulId[] {
     "파일 분석",
     "코드 분석"
   ]);
+  const wantsGithubAssistance = includesAny(request, [
+    "github repository analysis",
+    "github",
+    "pull request",
+    "repository",
+    "깃허브",
+    "저장소"
+  ]);
 
   if (wantsProjectFileAnalysis) {
+    return ["coder"];
+  }
+
+  if (wantsGithubAssistance && wantsReview) {
+    return ["reviewer"];
+  }
+
+  if (wantsGithubAssistance) {
     return ["coder"];
   }
 
