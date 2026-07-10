@@ -142,14 +142,19 @@ test("news source client collects Naver News through the official search API", a
 });
 
 test("n8n workflow client creates or updates workflows by name", async () => {
-  const calls: Array<{ url: string; method: string | undefined }> = [];
+  const calls: Array<{
+    url: string;
+    method: string | undefined;
+    body?: unknown;
+  }> = [];
   const client = new N8nWorkflowClient({
     apiUrl: "http://n8n.local",
     apiKey: "n8n-key",
     fetchImpl: async (url, init) => {
       calls.push({
         url: String(url),
-        method: init?.method
+        method: init?.method,
+        body: init?.body ? JSON.parse(String(init.body)) : undefined
       });
 
       if (init?.method === "GET") {
@@ -172,7 +177,16 @@ test("n8n workflow client creates or updates workflows by name", async () => {
 
   await client.upsertWorkflow({
     name: "Existing Workflow",
-    nodes: []
+    nodes: [],
+    connections: {},
+    settings: {
+      executionOrder: "v1"
+    },
+    active: false,
+    versionId: "export-version",
+    meta: {
+      description: "export-only metadata"
+    }
   });
   await client.upsertWorkflow({
     name: "New Workflow",
@@ -182,19 +196,35 @@ test("n8n workflow client creates or updates workflows by name", async () => {
   assert.deepEqual(calls, [
     {
       url: "http://n8n.local/api/v1/workflows",
-      method: "GET"
+      method: "GET",
+      body: undefined
     },
     {
       url: "http://n8n.local/api/v1/workflows/workflow-1",
-      method: "PATCH"
+      method: "PATCH",
+      body: {
+        name: "Existing Workflow",
+        nodes: [],
+        connections: {},
+        settings: {
+          executionOrder: "v1"
+        }
+      }
     },
     {
       url: "http://n8n.local/api/v1/workflows",
-      method: "GET"
+      method: "GET",
+      body: undefined
     },
     {
       url: "http://n8n.local/api/v1/workflows",
-      method: "POST"
+      method: "POST",
+      body: {
+        name: "New Workflow",
+        nodes: [],
+        connections: {},
+        settings: {}
+      }
     }
   ]);
 });

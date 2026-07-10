@@ -26,12 +26,13 @@ for (const workflowName of readdirSync(workflowsDir)) {
     `${workflowName}.n8n.json`
   );
   const workflow = JSON.parse(readFileSync(jsonPath, "utf8"));
+  const workflowPayload = toN8nWorkflowPayload(workflow);
   const existing = existingList.find((candidate) => candidate.name === workflow.name);
 
   if (existing?.id) {
     await request(`/api/v1/workflows/${existing.id}`, {
       method: "PATCH",
-      body: JSON.stringify(workflow)
+      body: JSON.stringify(workflowPayload)
     });
     console.log(`Updated n8n workflow: ${workflow.name}`);
     continue;
@@ -39,9 +40,18 @@ for (const workflowName of readdirSync(workflowsDir)) {
 
   await request("/api/v1/workflows", {
     method: "POST",
-    body: JSON.stringify(workflow)
+    body: JSON.stringify(workflowPayload)
   });
   console.log(`Created n8n workflow: ${workflow.name}`);
+}
+
+function toN8nWorkflowPayload(workflow) {
+  return {
+    name: workflow.name,
+    nodes: workflow.nodes ?? [],
+    connections: workflow.connections ?? {},
+    settings: workflow.settings ?? {}
+  };
 }
 
 async function request(path, init) {
@@ -54,13 +64,17 @@ async function request(path, init) {
     }
   });
 
-  if (!response.ok) {
-    throw new Error(`n8n API request failed with ${response.status}`);
-  }
-
   if (response.status === 204) {
     return undefined;
   }
 
-  return response.json();
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    throw new Error(
+      `n8n API request failed with ${response.status}: ${responseText}`
+    );
+  }
+
+  return responseText ? JSON.parse(responseText) : undefined;
 }

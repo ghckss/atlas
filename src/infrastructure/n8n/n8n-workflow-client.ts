@@ -60,6 +60,7 @@ export class N8nWorkflowClient {
 
   async upsertWorkflow(workflow: unknown): Promise<unknown> {
     const name = readWorkflowName(workflow);
+    const workflowPayload = toN8nWorkflowPayload(workflow);
     const existing = (await this.listWorkflows()).find(
       (candidate) => candidate.name === name
     );
@@ -67,13 +68,13 @@ export class N8nWorkflowClient {
     if (existing) {
       return this.request(`/api/v1/workflows/${existing.id}`, {
         method: "PATCH",
-        body: JSON.stringify(workflow)
+        body: JSON.stringify(workflowPayload)
       });
     }
 
     return this.request("/api/v1/workflows", {
       method: "POST",
-      body: JSON.stringify(workflow)
+      body: JSON.stringify(workflowPayload)
     });
   }
 
@@ -87,15 +88,19 @@ export class N8nWorkflowClient {
       }
     });
 
-    if (!response.ok) {
-      throw new Error(`n8n API request failed with ${response.status}.`);
-    }
-
     if (response.status === 204) {
       return undefined;
     }
 
-    return response.json();
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      throw new Error(
+        `n8n API request failed with ${response.status}: ${responseText}`
+      );
+    }
+
+    return responseText ? JSON.parse(responseText) : undefined;
   }
 }
 
@@ -111,4 +116,30 @@ function readWorkflowName(workflow: unknown): string {
   }
 
   return name;
+}
+
+function toN8nWorkflowPayload(workflow: unknown): Record<string, unknown> {
+  if (typeof workflow !== "object" || workflow === null) {
+    throw new Error("n8n workflow must be an object.");
+  }
+
+  const value = workflow as {
+    name?: unknown;
+    nodes?: unknown;
+    connections?: unknown;
+    settings?: unknown;
+  };
+
+  return {
+    name: value.name,
+    nodes: Array.isArray(value.nodes) ? value.nodes : [],
+    connections:
+      typeof value.connections === "object" && value.connections !== null
+        ? value.connections
+        : {},
+    settings:
+      typeof value.settings === "object" && value.settings !== null
+        ? value.settings
+        : {}
+  };
 }
