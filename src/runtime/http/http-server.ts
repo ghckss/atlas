@@ -36,6 +36,17 @@ export async function handleRuntimeHttpRequest(
     return handleRuntimeDiscordMessage(request.body, runtime);
   }
 
+  if (request.method === "GET" && request.path === "/news/articles") {
+    const articles = await runtime.newsCollector.collect(config.news.sourceUrls);
+
+    return {
+      status: 200,
+      body: {
+        articles
+      }
+    };
+  }
+
   if (request.method === "POST" && request.path === "/webhooks/news-briefing") {
     const handler = createNewsBriefingWebhookHandler(
       runtime.newsBriefing,

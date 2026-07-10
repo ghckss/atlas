@@ -36,7 +36,8 @@ export class MemoryContextService {
     });
     const memories = await this.memoryRepository.searchMemory(scope, embedding, {
       limit: request.limit,
-      minScore: request.minScore
+      minScore: request.minScore,
+      queryText: request.query
     });
 
     return {

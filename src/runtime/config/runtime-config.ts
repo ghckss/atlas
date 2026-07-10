@@ -15,6 +15,16 @@ export interface RuntimeConfig {
   };
   n8n: {
     webhookSecret: string;
+    apiUrl?: string;
+    apiKey?: string;
+  };
+  mem0: {
+    apiKey?: string;
+    baseUrl?: string;
+  };
+  news: {
+    sourceUrls: readonly string[];
+    collectionTimeoutMs: number;
   };
 }
 
@@ -44,7 +54,20 @@ export function loadRuntimeConfig(
       enableGateway: env.DISCORD_ENABLE_GATEWAY === "true"
     },
     n8n: {
-      webhookSecret: requireValue(env.N8N_WEBHOOK_SECRET, "N8N_WEBHOOK_SECRET")
+      webhookSecret: requireValue(env.N8N_WEBHOOK_SECRET, "N8N_WEBHOOK_SECRET"),
+      apiUrl: env.N8N_API_URL,
+      apiKey: env.N8N_API_KEY
+    },
+    mem0: {
+      apiKey: env.MEM0_API_KEY,
+      baseUrl: env.MEM0_BASE_URL ?? "https://api.mem0.ai"
+    },
+    news: {
+      sourceUrls: parseCsv(env.NEWS_SOURCE_URLS),
+      collectionTimeoutMs: parsePositiveInteger(
+        env.NEWS_COLLECTION_TIMEOUT_MS ?? "5000",
+        "NEWS_COLLECTION_TIMEOUT_MS"
+      )
     }
   };
 }
@@ -65,6 +88,16 @@ function parsePort(value: string): number {
   }
 
   return port;
+}
+
+function parsePositiveInteger(value: string, name: string): number {
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+
+  return parsed;
 }
 
 function requireValue(value: string | undefined, name: string): string {

@@ -11,7 +11,8 @@
 
 ## 입력
 
-- `NEWS_SOURCE_URLS`: 뉴스 수집 API 또는 중간 수집 엔드포인트
+- `HERMES_NEWS_COLLECTION_URL`: Hermes runtime의 뉴스 수집 엔드포인트
+- Hermes runtime은 `NEWS_SOURCE_URLS`에 지정된 JSON 뉴스 source들을 수집해 article 목록으로 정규화한다.
 - 수집 결과는 `{ "articles": [...] }` 형태를 기대한다.
 - 각 article은 최소 `title`, `url`을 포함해야 한다.
 
@@ -22,11 +23,23 @@
 
 ## 환경변수
 
+실행 시 n8n workflow에서 참조하는 값:
+
 - `N8N_WEBHOOK_SECRET`
+- `HERMES_NEWS_COLLECTION_URL`
 - `HERMES_NEWS_BRIEFING_WEBHOOK_URL`
 - `NEWS_SOURCE_URLS`
 - `DISCORD_GUILD_ID`
 - `NEWS_BRIEFING_DISCORD_CHANNEL_ID`
+
+Git 저장 JSON export를 n8n API로 반영할 때 사용하는 값:
+
+- `N8N_API_URL`
+- `N8N_API_KEY`
+
+```bash
+pnpm n8n:sync
+```
 
 ## 장애 대응
 

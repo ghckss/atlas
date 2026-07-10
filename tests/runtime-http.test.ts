@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   createLocalRuntime,
   handleRuntimeHttpRequest,
+  HttpNewsSourceClient,
   loadRuntimeConfig
 } from "../src";
 
@@ -111,3 +112,63 @@ test("local runtime exposes n8n news briefing webhook", async () => {
   assert.equal(response.status, 200);
   assert.match(JSON.stringify(response.body), /discordMessage/);
 });
+
+test("local runtime exposes collected news articles for n8n", async () => {
+  const runtime = createLocalRuntime(
+    loadRuntimeConfig({
+      ...configToEnv(),
+      NEWS_SOURCE_URLS: "https://news.example/feed"
+    })
+  );
+  runtime.newsCollector = new HttpNewsSourceClient({
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify({
+          articles: [
+            {
+              title: "AI news",
+              url: "https://example.com/ai"
+            }
+          ]
+        }),
+        { status: 200 }
+      )
+  });
+  const response = await handleRuntimeHttpRequest(
+    {
+      method: "GET",
+      path: "/news/articles",
+      headers: {}
+    },
+    runtime,
+    loadRuntimeConfig({
+      ...configToEnv(),
+      NEWS_SOURCE_URLS: "https://news.example/feed"
+    })
+  );
+
+  assert.deepEqual(response, {
+    status: 200,
+    body: {
+      articles: [
+        {
+          title: "AI news",
+          url: "https://example.com/ai",
+          source: "https://news.example/feed",
+          publishedAt: undefined,
+          summary: undefined
+        }
+      ]
+    }
+  });
+});
+
+function configToEnv(): Record<string, string> {
+  return {
+    PORT: "3000",
+    DISCORD_BOT_USER_ID: "bot-1",
+    DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
+    DISCORD_OWNER_USER_IDS: "owner-1",
+    N8N_WEBHOOK_SECRET: "secret"
+  };
+}

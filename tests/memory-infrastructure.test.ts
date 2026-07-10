@@ -9,6 +9,7 @@ import {
   defaultEmbeddingConfig,
   formatPgVector,
   loadEmbeddingConfig,
+  Mem0HttpClient,
   Mem0MemoryAdapter
 } from "../src";
 import type { EmbeddingVector, MemoryRecord, MemorySearchResult } from "../src";
@@ -129,7 +130,7 @@ test("Mem0 adapter forwards records through an explicit client boundary", async 
     },
     async search(request) {
       calls.push(
-        `search:${request.scope.namespaces.join(",")}:${request.limit}:${request.minScore}`
+        `search:${request.query}:${request.scope.namespaces.join(",")}:${request.limit}:${request.minScore}`
       );
       return [result];
     }
@@ -149,9 +150,102 @@ test("Mem0 adapter forwards records through an explicit client boundary", async 
         namespaces: ["personal"]
       },
       embedding,
-      { limit: 3, minScore: 0.8 }
+      { limit: 3, minScore: 0.8, queryText: "concise updates" }
     ),
     [result]
   );
-  assert.deepEqual(calls, ["add:memory-1", "search:personal:3:0.8"]);
+  assert.deepEqual(calls, [
+    "add:memory-1",
+    "search:concise updates:personal:3:0.8"
+  ]);
+});
+
+test("Mem0 HTTP client writes and searches memories through REST API", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const client = new Mem0HttpClient({
+    apiKey: "mem0-key",
+    baseUrl: "https://mem0.example",
+    fetchImpl: async (url, init) => {
+      calls.push({
+        url: String(url),
+        init: init ?? {}
+      });
+
+      if (String(url).endsWith("/search/")) {
+        return new Response(
+          JSON.stringify({
+            results: [
+              {
+                id: "mem0-memory-1",
+                memory: "Prefers Korean status updates.",
+                score: 0.9,
+                metadata: {
+                  namespace: "personal",
+                  lifetime: "permanent"
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        );
+      }
+
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }
+  });
+  const record: MemoryRecord = {
+    id: "memory-1",
+    namespace: "personal",
+    lifetime: "permanent",
+    owner: {
+      userId: "user-1"
+    },
+    content: "Prefers Korean status updates.",
+    source: "extracted-preference",
+    createdAt: new Date("2026-07-10T00:00:00.000Z"),
+    updatedAt: new Date("2026-07-10T00:00:00.000Z")
+  };
+  const embedding: EmbeddingVector = {
+    provider: "openai",
+    model: "text-embedding-3-small",
+    dimensions: 2,
+    values: [0.1, 0.2]
+  };
+
+  await client.add({ record, embedding });
+  const results = await client.search({
+    scope: {
+      userId: "user-1",
+      namespaces: ["personal"]
+    },
+    embedding,
+    query: "status language",
+    limit: 5
+  });
+
+  assert.equal(calls[0].url, "https://mem0.example/v3/memories/add/");
+  assert.equal(calls[1].url, "https://mem0.example/v3/memories/search/");
+  const addHeaders = calls[0].init.headers as Record<string, string>;
+  assert.equal(addHeaders.authorization, "Token mem0-key");
+  assert.deepEqual(JSON.parse(String(calls[1].init.body)), {
+    query: "status language",
+    filters: {
+      AND: [
+        {
+          user_id: "user-1"
+        },
+        {
+          metadata: {
+            namespace: {
+              in: ["personal"]
+            }
+          }
+        }
+      ]
+    },
+    top_k: 5,
+    threshold: 0
+  });
+  assert.equal(results[0].record.content, "Prefers Korean status updates.");
+  assert.equal(results[0].score, 0.9);
 });

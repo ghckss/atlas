@@ -4,6 +4,7 @@ import type { EmbeddingVector } from "./embedding-provider";
 export interface MemorySearchOptions {
   limit: number;
   minScore?: number;
+  queryText?: string;
 }
 
 export interface MemorySearchResult {

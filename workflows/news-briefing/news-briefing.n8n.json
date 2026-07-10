@@ -23,7 +23,7 @@
     },
     {
       "parameters": {
-        "url": "={{$env.NEWS_SOURCE_URLS}}",
+        "url": "={{$env.HERMES_NEWS_COLLECTION_URL}}",
         "responseFormat": "json"
       },
       "id": "collect-news",

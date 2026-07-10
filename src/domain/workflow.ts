@@ -25,9 +25,13 @@ export const newsBriefingWorkflow: WorkflowAsset = {
   jsonExportPath: "workflows/news-briefing/news-briefing.n8n.json",
   documentationPath: "workflows/news-briefing/README.md",
   environmentVariables: [
+    "N8N_API_URL",
+    "N8N_API_KEY",
     "N8N_WEBHOOK_SECRET",
+    "HERMES_NEWS_COLLECTION_URL",
     "HERMES_NEWS_BRIEFING_WEBHOOK_URL",
     "NEWS_SOURCE_URLS",
+    "NEWS_COLLECTION_TIMEOUT_MS",
     "NEWS_BRIEFING_DISCORD_CHANNEL_ID"
   ],
   failureHandling: [
