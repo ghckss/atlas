@@ -54,6 +54,18 @@ function selectSouls(request: string): readonly SoulId[] {
     "튜토리얼",
     "뭐야"
   ]);
+  const wantsProjectFileAnalysis = includesAny(request, [
+    "project file analysis",
+    "file analysis",
+    "code analysis",
+    "프로젝트 파일 분석",
+    "파일 분석",
+    "코드 분석"
+  ]);
+
+  if (wantsProjectFileAnalysis) {
+    return ["coder"];
+  }
 
   if (wantsReview && wantsCode) {
     return ["reviewer", "coder"];
