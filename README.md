@@ -19,7 +19,19 @@ pnpm install
 pnpm typecheck
 pnpm test
 pnpm validate:workflows
+pnpm validate
 ```
+
+## 구조
+
+- `src/domain`: Role, Memory, Soul, Workflow, MCP 같은 핵심 계약
+- `src/application`: Hermes orchestration, Task Planner, Soul Pipeline, port 정의
+- `src/infrastructure`: OpenAI embedding, Mem0 boundary, PostgreSQL/pgvector SQL
+- `src/interfaces`: Discord, HTTP webhook 같은 외부 인터페이스
+- `db/migrations`: PostgreSQL/pgvector 스키마
+- `workflows`: n8n JSON export와 운영 문서
+- `memory`: 사람이 관리하는 USER.md/MEMORY.md 원본
+- `docs`: 아키텍처와 운영 가이드
 
 ## 원칙
 
@@ -28,3 +40,9 @@ pnpm validate:workflows
 - USER.md와 MEMORY.md는 파일을 원본으로 두며 Git으로 변경 이력을 관리합니다.
 - 자동 학습된 기억은 USER.md/MEMORY.md에 직접 쓰지 않고 External Memory에 저장합니다.
 - 모든 외부 연동은 port/adapter 경계를 통해 교체 가능하게 둡니다.
+
+## 문서
+
+- [Architecture](docs/architecture.md)
+- [Memory](docs/memory.md)
+- [Operations](docs/operations.md)
