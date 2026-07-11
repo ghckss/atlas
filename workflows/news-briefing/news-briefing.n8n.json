@@ -98,7 +98,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const rawMessage = $json.discordMessage ?? $json.body?.discordMessage;\nconst message = typeof rawMessage === 'string' ? rawMessage.trim() : '';\n\nif (!message) {\n  return [];\n}\n\nconst limit = 2000;\nconst suffix = '\\n\\n... truncated by n8n';\nconst discordMessage = message.length <= limit\n  ? message\n  : `${message.slice(0, limit - suffix.length).trimEnd()}${suffix}`;\n\nreturn [\n  {\n    json: {\n      ...$json,\n      discordMessage\n    }\n  }\n];"
+        "jsCode": "const rawMessages = Array.isArray($json.discordMessages)\n  ? $json.discordMessages\n  : [$json.discordMessage ?? $json.body?.discordMessage];\nconst limit = 2000;\n\nfunction normalize(value) {\n  return typeof value === 'string' ? value.trim() : '';\n}\n\nfunction splitMessage(value) {\n  const message = normalize(value);\n\n  if (!message) {\n    return [];\n  }\n\n  const chunks = [];\n  let current = '';\n\n  for (const line of message.split('\\n')) {\n    const candidate = current ? `${current}\\n${line}` : line;\n\n    if (candidate.length <= limit) {\n      current = candidate;\n      continue;\n    }\n\n    if (current) {\n      chunks.push(current);\n      current = '';\n    }\n\n    for (let index = 0; index < line.length; index += limit) {\n      chunks.push(line.slice(index, index + limit));\n    }\n  }\n\n  if (current) {\n    chunks.push(current);\n  }\n\n  return chunks;\n}\n\nconst discordMessages = rawMessages.flatMap(splitMessage).filter(Boolean);\n\nif (discordMessages.length === 0) {\n  return [];\n}\n\nconst firstLine = discordMessages[0].split('\\n')[0] || '뉴스 브리핑';\nconst threadName = firstLine.length > 80 ? `${firstLine.slice(0, 77)}...` : firstLine;\nconst makePayload = (content) => ({\n  content,\n  flags: 4,\n  allowed_mentions: {\n    parse: []\n  }\n});\n\nreturn [\n  {\n    json: {\n      ...$json,\n      discordMessage: discordMessages[0],\n      discordMessages,\n      threadMessages: discordMessages.slice(1),\n      threadName,\n      discordPayload: makePayload(discordMessages[0])\n    }\n  }\n];"
       },
       "id": "prepare-discord-message",
       "name": "Prepare Discord Message",
@@ -129,7 +129,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{JSON.stringify({ content: $json.discordMessage, flags: 4, allowed_mentions: { parse: [] } })}}",
+        "jsonBody": "={{JSON.stringify($json.discordPayload)}}",
         "responseFormat": "json"
       },
       "id": "send-discord",
@@ -138,6 +138,103 @@
       "typeVersion": 4.2,
       "position": [
         1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{($node[\"Prepare Discord Message\"].json.threadMessages || []).length > 0}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "has-thread-messages",
+      "name": "Has Thread Messages",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{\"https://discord.com/api/v10/channels/\" + $env.NEWS_BRIEFING_DISCORD_CHANNEL_ID + \"/messages/\" + $json.id + \"/threads\"}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{String($env.DISCORD_BOT_TOKEN || \"\").startsWith(\"Bot \") ? String($env.DISCORD_BOT_TOKEN || \"\") : \"Bot \" + String($env.DISCORD_BOT_TOKEN || \"\")}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ name: $node[\"Prepare Discord Message\"].json.threadName || \"뉴스 브리핑 추가 기사\", auto_archive_duration: 1440 })}}",
+        "responseFormat": "json"
+      },
+      "id": "create-discord-thread",
+      "name": "Create Discord Thread",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const threadId = $json.id;\nconst threadMessages = $node['Prepare Discord Message'].json.threadMessages || [];\n\nif (!threadId || threadMessages.length === 0) {\n  return [];\n}\n\nconst makePayload = (content) => ({\n  content,\n  flags: 4,\n  allowed_mentions: {\n    parse: []\n  }\n});\n\nreturn threadMessages.map((content, index) => ({\n  json: {\n    threadId,\n    index: index + 1,\n    discordPayload: makePayload(content)\n  }\n}));"
+      },
+      "id": "prepare-thread-messages",
+      "name": "Prepare Thread Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{\"https://discord.com/api/v10/channels/\" + $json.threadId + \"/messages\"}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{String($env.DISCORD_BOT_TOKEN || \"\").startsWith(\"Bot \") ? String($env.DISCORD_BOT_TOKEN || \"\") : \"Bot \" + String($env.DISCORD_BOT_TOKEN || \"\")}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json.discordPayload)}}",
+        "responseFormat": "json"
+      },
+      "id": "send-thread-message",
+      "name": "Send Thread Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
         0
       ]
     }
@@ -193,6 +290,51 @@
         [
           {
             "node": "Send Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Discord": {
+      "main": [
+        [
+          {
+            "node": "Has Thread Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Thread Messages": {
+      "main": [
+        [
+          {
+            "node": "Create Discord Thread",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Create Discord Thread": {
+      "main": [
+        [
+          {
+            "node": "Prepare Thread Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Thread Messages": {
+      "main": [
+        [
+          {
+            "node": "Send Thread Message",
             "type": "main",
             "index": 0
           }

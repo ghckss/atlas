@@ -8,6 +8,7 @@
 
 - n8n Schedule Trigger
 - 초기 설정은 24시간 간격 실행이다.
+- 현재 JSON export에는 고정 시각이 설정되어 있지 않다. workflow가 활성화된 시점과 n8n의 다음 실행 계산에 따라 24시간 간격으로 돈다.
 
 ## 입력
 
@@ -22,7 +23,8 @@
 
 ## 출력
 
-- Hermes webhook 응답의 `discordMessage`를 Discord 지정 채널로 전송한다.
+- Hermes webhook 응답의 `discordMessages`를 Discord 지정 채널로 전송한다.
+- 첫 메시지는 채널에 전송하고, 추가 메시지가 있으면 첫 메시지 아래 thread를 생성해 이어서 전송한다.
 - Hermes가 전송할 내용이 없다고 판단하면 `shouldSend=false`를 반환하고 Discord 전송을 건너뛴다.
 
 ## 환경변수
@@ -44,7 +46,7 @@
 - `NEWS_SOURCE_URLS`
 - `NEWS_BRIEFING_DISCORD_CHANNEL_ID`
 
-Discord 전송은 n8n Discord credential을 사용하지 않는다. `Prepare Discord Message` 노드가 빈 메시지와 2000자 초과 메시지를 방어하고, `Send Discord` 노드는 HTTP Request로 Discord REST API를 직접 호출한다. `DISCORD_BOT_TOKEN`을 `Authorization: Bot ...` 헤더로 사용하며, body는 JSON `{ content, flags, allowed_mentions }` 형식으로 전송한다. `flags=4`는 링크 embed preview를 억제한다.
+Discord 전송은 n8n Discord credential을 사용하지 않는다. `Prepare Discord Message` 노드가 빈 메시지와 2000자 초과 메시지를 방어하고, `Send Discord` 노드는 HTTP Request로 Discord REST API를 직접 호출한다. `DISCORD_BOT_TOKEN`을 `Authorization: Bot ...` 헤더로 사용하며, body는 JSON `{ content, flags, allowed_mentions }` 형식으로 전송한다. `flags=4`는 링크 embed preview를 억제한다. 추가 메시지는 `Create Discord Thread`와 `Send Thread Message`를 통해 첫 메시지 아래 thread로 전송한다.
 
 Git 저장 JSON export를 n8n API로 반영할 때 사용하는 값:
 
@@ -62,4 +64,4 @@ pnpm n8n:sync
 - Hermes webhook이 `400`을 반환하면 뉴스 수집 결과의 article 형식을 확인한다.
 - Discord 전송 `Authorization failed`는 `DISCORD_BOT_TOKEN` 값을 확인한다.
 - Discord 전송 `Bad request` 또는 `Invalid Form Body`는 `Prepare Discord Message` 출력의 `discordMessage`가 비어 있지 않은지, `Send Discord` body가 JSON 형식인지 확인한다.
-- Discord 전송 권한 실패는 `NEWS_BRIEFING_DISCORD_CHANNEL_ID`와 봇의 채널 권한을 확인한다.
+- Discord 전송 권한 실패는 `NEWS_BRIEFING_DISCORD_CHANNEL_ID`와 봇의 채널 권한을 확인한다. Thread 전송을 위해 봇에는 thread 생성 및 thread 메시지 전송 권한도 필요하다.

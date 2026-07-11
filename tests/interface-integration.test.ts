@@ -145,6 +145,7 @@ test("news briefing webhook validates secret and delegates summary to Hermes", a
     body: {
       shouldSend: false,
       discordMessage: "",
+      discordMessages: [],
       articleCount: 0
     }
   });
@@ -204,12 +205,18 @@ test("news briefing webhook keeps Discord messages within content limits", async
       ]
     }
   });
-  const body = response.body as { discordMessage: string; shouldSend: boolean };
+  const body = response.body as {
+    discordMessage: string;
+    discordMessages: readonly string[];
+    shouldSend: boolean;
+  };
 
   assert.equal(response.status, 200);
   assert.equal(body.shouldSend, true);
   assert.equal(body.discordMessage.length, 2000);
-  assert.match(body.discordMessage, /truncated for Discord message limit$/);
+  assert.equal(body.discordMessages.length, 2);
+  assert.equal(body.discordMessages[0].length, 2000);
+  assert.equal(body.discordMessages[1].length, 500);
 });
 
 test("news briefing webhook uses compact Discord output for the local MVP runtime", async () => {
@@ -245,15 +252,39 @@ test("news briefing webhook uses compact Discord output for the local MVP runtim
           title: "오늘 봐야 할 주요 이슈",
           url: "https://news.google.com/rss/articles/example-2",
           source: "연합뉴스"
+        },
+        {
+          title: "세 번째 주요 뉴스",
+          url: "https://news.google.com/rss/articles/example-3",
+          source: "KBS"
+        },
+        {
+          title: "네 번째 주요 뉴스",
+          url: "https://news.google.com/rss/articles/example-4",
+          source: "MBC"
+        },
+        {
+          title: "다섯 번째 주요 뉴스",
+          url: "https://news.google.com/rss/articles/example-5",
+          source: "SBS"
+        },
+        {
+          title: "여섯 번째 주요 뉴스",
+          url: "https://news.google.com/rss/articles/example-6",
+          source: "JTBC"
         }
       ]
     }
   });
-  const body = response.body as { discordMessage: string; shouldSend: boolean };
+  const body = response.body as {
+    discordMessage: string;
+    discordMessages: readonly string[];
+    shouldSend: boolean;
+  };
 
   assert.equal(response.status, 200);
   assert.equal(body.shouldSend, true);
-  assert.match(body.discordMessage, /오늘의 뉴스 브리핑/);
+  assert.match(body.discordMessage, /오늘의 뉴스 브리핑 \(\d{4}-\d{2}-\d{2}\)/);
   assert.match(
     body.discordMessage,
     /\[범죄 막겠다며 AI로 민간인 감시\]\(https:\/\/news\.google\.com\/rss\/articles\/example\) \(조선일보\)/
@@ -262,7 +293,10 @@ test("news briefing webhook uses compact Discord output for the local MVP runtim
     body.discordMessage,
     /1\. \[범죄 막겠다며 AI로 민간인 감시\]\(https:\/\/news\.google\.com\/rss\/articles\/example\) \(조선일보\)\n2\. \[오늘 봐야 할 주요 이슈\]\(https:\/\/news\.google\.com\/rss\/articles\/example-2\) \(연합뉴스\)/
   );
+  assert.match(body.discordMessage, /6\. \[여섯 번째 주요 뉴스\]/);
+  assert.equal(body.discordMessages[0], body.discordMessage);
   assert.doesNotMatch(body.discordMessage, /\n\n2\./);
+  assert.doesNotMatch(body.discordMessage, /외 1건/);
   assert.doesNotMatch(body.discordMessage, /publishedAt=/);
   assert.doesNotMatch(body.discordMessage, /<a href/);
   assert.doesNotMatch(body.discordMessage, /로컬 MVP 런타임/);
@@ -295,9 +329,23 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
   const sendDiscord = workflow.nodes.find(
     (node: { name?: string }) => node.name === "Send Discord"
   );
+  const hasThreadMessages = workflow.nodes.find(
+    (node: { name?: string }) => node.name === "Has Thread Messages"
+  );
+  const createThread = workflow.nodes.find(
+    (node: { name?: string }) => node.name === "Create Discord Thread"
+  );
+  const prepareThreadMessages = workflow.nodes.find(
+    (node: { name?: string }) => node.name === "Prepare Thread Messages"
+  );
+  const sendThreadMessage = workflow.nodes.find(
+    (node: { name?: string }) => node.name === "Send Thread Message"
+  );
 
   assert.equal(prepareDiscord.type, "n8n-nodes-base.code");
   assert.match(prepareDiscord.parameters.jsCode, /return \[\]/);
+  assert.match(prepareDiscord.parameters.jsCode, /threadMessages/);
+  assert.match(prepareDiscord.parameters.jsCode, /flags: 4/);
   assert.equal(sendDiscord.type, "n8n-nodes-base.httpRequest");
   assert.equal(
     sendDiscord.parameters.url,
@@ -305,8 +353,14 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
   );
   assert.equal(sendDiscord.parameters.contentType, "json");
   assert.equal(sendDiscord.parameters.specifyBody, "json");
-  assert.match(sendDiscord.parameters.jsonBody, /allowed_mentions/);
-  assert.match(sendDiscord.parameters.jsonBody, /flags: 4/);
+  assert.equal(sendDiscord.parameters.jsonBody, "={{JSON.stringify($json.discordPayload)}}");
+  assert.equal(hasThreadMessages.type, "n8n-nodes-base.if");
+  assert.equal(createThread.type, "n8n-nodes-base.httpRequest");
+  assert.match(createThread.parameters.url, /\/threads/);
+  assert.equal(prepareThreadMessages.type, "n8n-nodes-base.code");
+  assert.match(prepareThreadMessages.parameters.jsCode, /Prepare Discord Message/);
+  assert.equal(sendThreadMessage.type, "n8n-nodes-base.httpRequest");
+  assert.match(sendThreadMessage.parameters.url, /threadId/);
   assert.deepEqual(
     sendDiscord.parameters.headerParameters.parameters.find(
       (header: { name?: string }) => header.name === "Authorization"
@@ -323,5 +377,21 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
   assert.equal(
     workflow.connections["Prepare Discord Message"].main[0][0].node,
     "Send Discord"
+  );
+  assert.equal(
+    workflow.connections["Send Discord"].main[0][0].node,
+    "Has Thread Messages"
+  );
+  assert.equal(
+    workflow.connections["Has Thread Messages"].main[0][0].node,
+    "Create Discord Thread"
+  );
+  assert.equal(
+    workflow.connections["Create Discord Thread"].main[0][0].node,
+    "Prepare Thread Messages"
+  );
+  assert.equal(
+    workflow.connections["Prepare Thread Messages"].main[0][0].node,
+    "Send Thread Message"
   );
 });

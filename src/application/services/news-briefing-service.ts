@@ -18,13 +18,12 @@ export interface NewsBriefingRequest {
 export interface NewsBriefingResponse {
   shouldSend: boolean;
   discordMessage: string;
+  discordMessages: readonly string[];
   articleCount: number;
 }
 
 const DISCORD_MESSAGE_LIMIT = 2000;
-const TRUNCATED_SUFFIX = "\n\n... truncated for Discord message limit";
 const LOCAL_TEMPLATE_MARKER = "로컬 MVP 런타임 응답입니다.";
-const COMPACT_ARTICLE_LIMIT = 5;
 
 export class HermesNewsBriefingService {
   constructor(
@@ -39,6 +38,7 @@ export class HermesNewsBriefingService {
       return {
         shouldSend: false,
         discordMessage: "",
+        discordMessages: [],
         articleCount: 0
       };
     }
@@ -53,24 +53,62 @@ export class HermesNewsBriefingService {
     const output = isLocalTemplateOutput(pipeline.finalOutput)
       ? formatCompactBriefing(request.articles, request.locale)
       : pipeline.finalOutput;
-    const discordMessage = formatDiscordMessage(output);
+    const discordMessages = splitDiscordMessages(output);
 
     return {
-      shouldSend: discordMessage.length > 0,
-      discordMessage,
+      shouldSend: discordMessages.length > 0,
+      discordMessage: discordMessages[0] ?? "",
+      discordMessages,
       articleCount: request.articles.length
     };
   }
 }
 
-function formatDiscordMessage(value: string): string {
+function splitDiscordMessages(value: string): readonly string[] {
   const message = value.trim();
 
-  if (message.length <= DISCORD_MESSAGE_LIMIT) {
-    return message;
+  if (!message) {
+    return [];
   }
 
-  return `${message.slice(0, DISCORD_MESSAGE_LIMIT - TRUNCATED_SUFFIX.length).trimEnd()}${TRUNCATED_SUFFIX}`;
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const line of message.split("\n")) {
+    const candidate = current ? `${current}\n${line}` : line;
+
+    if (candidate.length <= DISCORD_MESSAGE_LIMIT) {
+      current = candidate;
+      continue;
+    }
+
+    if (current) {
+      chunks.push(current);
+      current = "";
+    }
+
+    chunks.push(...splitLongLine(line));
+  }
+
+  if (current) {
+    chunks.push(current);
+  }
+
+  return chunks;
+}
+
+function splitLongLine(value: string): readonly string[] {
+  if (value.length <= DISCORD_MESSAGE_LIMIT) {
+    return [value];
+  }
+
+  const chunks: string[] = [];
+
+  for (let index = 0; index < value.length; index += DISCORD_MESSAGE_LIMIT) {
+    chunks.push(value.slice(index, index + DISCORD_MESSAGE_LIMIT));
+  }
+
+  return chunks;
 }
 
 function isLocalTemplateOutput(value: string): boolean {
@@ -81,21 +119,29 @@ function formatCompactBriefing(
   articles: readonly NewsArticle[],
   locale: NewsBriefingRequest["locale"]
 ): string {
-  const title = locale === "ko" ? "오늘의 뉴스 브리핑" : "News Briefing";
-  const entries = articles.slice(0, COMPACT_ARTICLE_LIMIT).map((article, index) => {
+  const title =
+    locale === "ko"
+      ? `오늘의 뉴스 브리핑 (${formatBriefingDate(new Date())})`
+      : `News Briefing (${formatBriefingDate(new Date())})`;
+  const entries = articles.map((article, index) => {
     const source = article.source ? ` (${article.source})` : "";
 
     return `${index + 1}. [${escapeMarkdownLinkText(article.title)}](${article.url})${source}`;
   });
-  const remaining = articles.length - entries.length;
-  const suffix =
-    remaining > 0
-      ? locale === "ko"
-        ? `외 ${remaining}건`
-        : `${remaining} more`
-      : undefined;
 
-  return [title, ...entries, suffix].filter(Boolean).join("\n");
+  return [title, ...entries].filter(Boolean).join("\n");
+}
+
+function formatBriefingDate(value: Date): string {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(value);
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return `${byType.year}-${byType.month}-${byType.day}`;
 }
 
 function escapeMarkdownLinkText(value: string): string {
