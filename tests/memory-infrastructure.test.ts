@@ -249,3 +249,33 @@ test("Mem0 HTTP client writes and searches memories through REST API", async () 
   assert.equal(results[0].record.content, "Prefers Korean status updates.");
   assert.equal(results[0].score, 0.9);
 });
+
+test("Mem0 HTTP client includes response body in failed requests", async () => {
+  const client = new Mem0HttpClient({
+    apiKey: "mem0-key",
+    baseUrl: "https://mem0.example",
+    fetchImpl: async () =>
+      new Response(JSON.stringify({ detail: "invalid filters" }), {
+        status: 400
+      })
+  });
+
+  await assert.rejects(
+    () =>
+      client.search({
+        scope: {
+          userId: "user-1",
+          namespaces: ["personal"]
+        },
+        embedding: {
+          provider: "openai",
+          model: "text-embedding-3-small",
+          dimensions: 2,
+          values: [0.1, 0.2]
+        },
+        query: "hello",
+        limit: 5
+      }),
+    /Mem0 request failed with 400: .*invalid filters/
+  );
+});

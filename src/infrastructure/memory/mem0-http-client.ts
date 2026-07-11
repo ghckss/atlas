@@ -79,15 +79,19 @@ export class Mem0HttpClient implements Mem0Client {
       }
     });
 
-    if (!response.ok) {
-      throw new Error(`Mem0 request failed with ${response.status}.`);
-    }
-
     if (response.status === 204) {
       return undefined;
     }
 
-    return response.json();
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      throw new Error(
+        `Mem0 request failed with ${response.status}: ${responseText || response.statusText}`
+      );
+    }
+
+    return responseText ? JSON.parse(responseText) : undefined;
   }
 }
 

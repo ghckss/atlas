@@ -62,6 +62,23 @@ test("MemoryContextService searches only the scoped namespaces", async () => {
   assert.equal(embeddingProvider.lastInput?.purpose, "memory-search");
 });
 
+test("MemoryContextService fails open when external memory search fails", async () => {
+  const service = new MemoryContextService(
+    new FakeEmbeddingProvider(),
+    new ThrowingMemoryRepository()
+  );
+  const context = await service.retrieve({
+    identity: {
+      userId: "user-1"
+    },
+    query: "hello",
+    limit: 4
+  });
+
+  assert.deepEqual(context.memories, []);
+  assert.deepEqual(context.scope.namespaces, ["personal"]);
+});
+
 test("SoulPipeline passes each Soul output to the next Soul", async () => {
   const calls: SoulRuntimeInput[] = [];
   const pipeline = new SoulPipeline({
@@ -152,6 +169,14 @@ class FakeMemoryRepository implements MemoryRepository {
   ): ReturnType<MemoryRepository["searchMemory"]> {
     this.lastScope = args[0];
     return this.results;
+  }
+}
+
+class ThrowingMemoryRepository implements MemoryRepository {
+  async upsertMemory(): Promise<void> {}
+
+  async searchMemory(): Promise<readonly []> {
+    throw new Error("external memory unavailable");
   }
 }
 

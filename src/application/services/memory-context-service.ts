@@ -34,15 +34,28 @@ export class MemoryContextService {
       text: request.query,
       purpose: "memory-search"
     });
-    const memories = await this.memoryRepository.searchMemory(scope, embedding, {
-      limit: request.limit,
-      minScore: request.minScore,
-      queryText: request.query
-    });
+    let memories: readonly MemorySearchResult[];
+
+    try {
+      memories = await this.memoryRepository.searchMemory(scope, embedding, {
+        limit: request.limit,
+        minScore: request.minScore,
+        queryText: request.query
+      });
+    } catch (error) {
+      console.warn(
+        `Memory search failed; continuing without external memory. ${formatMemoryError(error)}`
+      );
+      memories = [];
+    }
 
     return {
       scope,
       memories
     };
   }
+}
+
+function formatMemoryError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
