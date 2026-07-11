@@ -67,6 +67,16 @@ MEM0_API_KEY=... pnpm dev
 
 `MEM0_BASE_URL` 기본값은 `https://api.mem0.ai`입니다. self-hosted Mem0 REST endpoint를 사용할 때만 바꿉니다.
 
+실제 LLM 응답:
+
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-5.6
+```
+
+`LLM_PROVIDER=template`는 로컬 wiring 검증용 응답기를 사용한다. Discord에서 실제 모델 답변을 받으려면 `openai`로 변경한 뒤 runtime을 재시작한다.
+
 n8n Workflow 동기화:
 
 ```bash

@@ -17,6 +17,7 @@ import {
   DeterministicEmbeddingProvider,
   InMemoryChatHistoryRepository,
   InMemoryMemoryRepository,
+  OpenAISoulRuntime,
   TemplateSoulRuntime
 } from "./adapters";
 
@@ -35,7 +36,7 @@ export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
     memoryRepository
   );
   const planner = new TaskPlanner();
-  const soulPipeline = new SoulPipeline(new TemplateSoulRuntime());
+  const soulPipeline = new SoulPipeline(createSoulRuntime(config));
 
   return {
     chat: new HermesChatService(
@@ -54,6 +55,19 @@ export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
       ownerUserIds: config.discord.ownerUserIds
     }
   };
+}
+
+function createSoulRuntime(config: RuntimeConfig) {
+  if (config.llm.provider === "openai") {
+    return new OpenAISoulRuntime({
+      apiKey: config.llm.openaiApiKey ?? "",
+      baseUrl: config.llm.openaiBaseUrl,
+      model: config.llm.openaiModel,
+      timeoutMs: config.llm.requestTimeoutMs
+    });
+  }
+
+  return new TemplateSoulRuntime();
 }
 
 function createMemoryRepository(config: RuntimeConfig): MemoryRepository {

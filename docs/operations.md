@@ -10,7 +10,11 @@
 - `DISCORD_GUILD_ID`
 - `DISCORD_DEDICATED_CHANNEL_ID`
 - `DISCORD_OWNER_USER_IDS`
+- `LLM_PROVIDER`
 - `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `OPENAI_BASE_URL`
+- `LLM_REQUEST_TIMEOUT_MS`
 - `EMBEDDING_PROVIDER`
 - `EMBEDDING_MODEL`
 - `EMBEDDING_DIMENSIONS`
@@ -39,6 +43,20 @@
 - 일반 채널 메시지는 무시한다.
 - DM은 Owner 개인 작업이나 민감한 응답에 한해 제한적으로 처리한다.
 - 설정 변경과 시스템 변경은 Owner 권한으로 제한한다.
+
+## LLM Provider 운영
+
+기본 runtime은 `LLM_PROVIDER=template`로 동작하며, 이는 로컬 wiring과 workflow 검증용 응답기이다. 실제 운영 답변을 받으려면 다음 값을 설정한다.
+
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-5.6
+OPENAI_BASE_URL=https://api.openai.com
+LLM_REQUEST_TIMEOUT_MS=30000
+```
+
+OpenAI provider는 Responses API를 호출한다. provider 변경 후에는 Hermes runtime을 재시작해야 한다.
 
 ## n8n Workflow 운영
 

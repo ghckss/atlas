@@ -16,6 +16,11 @@ test("runtime config loads required local MVP settings", () => {
     MEM0_BASE_URL: "https://mem0.example",
     NEWS_PROVIDERS: "google-news, naver-news",
     NEWS_QUERY: "AI agent",
+    LLM_PROVIDER: "openai",
+    OPENAI_API_KEY: "openai-key",
+    OPENAI_MODEL: "gpt-5.6",
+    OPENAI_BASE_URL: "https://openai.example",
+    LLM_REQUEST_TIMEOUT_MS: "20000",
     NEWS_GOOGLE_LANGUAGE: "ko",
     NEWS_GOOGLE_COUNTRY: "KR",
     NAVER_CLIENT_ID: "naver-id",
@@ -35,6 +40,11 @@ test("runtime config loads required local MVP settings", () => {
   assert.equal(config.n8n.apiKey, "n8n-key");
   assert.equal(config.mem0.apiKey, "mem0-key");
   assert.equal(config.mem0.baseUrl, "https://mem0.example");
+  assert.equal(config.llm.provider, "openai");
+  assert.equal(config.llm.openaiApiKey, "openai-key");
+  assert.equal(config.llm.openaiModel, "gpt-5.6");
+  assert.equal(config.llm.openaiBaseUrl, "https://openai.example");
+  assert.equal(config.llm.requestTimeoutMs, 20000);
   assert.deepEqual(config.news.sourceUrls, [
     "https://news-a.example",
     "https://news-b.example"
@@ -62,6 +72,8 @@ test("runtime config defaults news collection to Google News top stories", () =>
   assert.equal(config.news.googleLanguage, "ko");
   assert.equal(config.news.googleCountry, "KR");
   assert.equal(config.news.maxArticles, 10);
+  assert.equal(config.llm.provider, "template");
+  assert.equal(config.llm.openaiModel, "gpt-5.6");
 });
 
 test("runtime config can enable Discord Gateway with a token", () => {
@@ -95,6 +107,16 @@ test("runtime config rejects invalid port and missing secrets", () => {
         DISCORD_DEDICATED_CHANNEL_ID: "channel-1"
       }),
     /N8N_WEBHOOK_SECRET/
+  );
+  assert.throws(
+    () =>
+      loadRuntimeConfig({
+        DISCORD_BOT_USER_ID: "bot-1",
+        DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
+        N8N_WEBHOOK_SECRET: "secret",
+        LLM_PROVIDER: "unknown"
+      }),
+    /LLM_PROVIDER/
   );
 });
 

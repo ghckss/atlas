@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   HermesChatService,
   MemoryContextService,
+  OpenAISoulRuntime,
   SoulPipeline,
   TaskPlanner
 } from "../src";
@@ -95,6 +96,44 @@ test("SoulPipeline passes each Soul output to the next Soul", async () => {
 
   assert.equal(result.finalOutput, "coder:architect:start");
   assert.equal(calls[1].previousOutput, "architect:start");
+});
+
+test("OpenAISoulRuntime calls Responses API for Soul execution", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  const runtime = new OpenAISoulRuntime({
+    apiKey: "openai-key",
+    model: "gpt-5.6",
+    baseUrl: "https://openai.example",
+    fetchImpl: async (url, init) => {
+      calls.push({
+        url: String(url),
+        init: init ?? {}
+      });
+
+      return new Response(JSON.stringify({ output_text: "실제 모델 응답" }), {
+        status: 200
+      });
+    }
+  });
+
+  assert.equal(
+    await runtime.execute({
+      soul: "default",
+      request: "안녕",
+      memoryContext: "[Session History]\nuser: 안녕"
+    }),
+    "실제 모델 응답"
+  );
+  assert.equal(calls[0].url, "https://openai.example/v1/responses");
+  assert.equal(
+    (calls[0].init.headers as Record<string, string>).authorization,
+    "Bearer openai-key"
+  );
+  assert.deepEqual(JSON.parse(String(calls[0].init.body)).model, "gpt-5.6");
+  assert.match(
+    JSON.parse(String(calls[0].init.body)).instructions,
+    /Answer in Korean/
+  );
 });
 
 test("HermesChatService records conversation and returns pipeline output", async () => {

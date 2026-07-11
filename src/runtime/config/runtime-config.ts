@@ -5,6 +5,13 @@ export interface RuntimeConfig {
   logLevel: string;
   port: number;
   databaseUrl: string;
+  llm: {
+    provider: "template" | "openai";
+    openaiApiKey?: string;
+    openaiBaseUrl: string;
+    openaiModel: string;
+    requestTimeoutMs: number;
+  };
   discord: {
     token?: string;
     botUserId: string;
@@ -52,6 +59,16 @@ export function loadRuntimeConfig(
     port: parsePort(env.PORT ?? "3000"),
     databaseUrl:
       env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/hermes",
+    llm: {
+      provider: parseLlmProvider(env.LLM_PROVIDER),
+      openaiApiKey: env.OPENAI_API_KEY,
+      openaiBaseUrl: env.OPENAI_BASE_URL ?? "https://api.openai.com",
+      openaiModel: env.OPENAI_MODEL ?? "gpt-5.6",
+      requestTimeoutMs: parsePositiveInteger(
+        env.LLM_REQUEST_TIMEOUT_MS ?? "30000",
+        "LLM_REQUEST_TIMEOUT_MS"
+      )
+    },
     discord: {
       token: env.DISCORD_BOT_TOKEN,
       botUserId: requireValue(env.DISCORD_BOT_USER_ID, "DISCORD_BOT_USER_ID"),
@@ -130,6 +147,18 @@ function requireValue(value: string | undefined, name: string): string {
   }
 
   return value;
+}
+
+function parseLlmProvider(value: string | undefined): RuntimeConfig["llm"]["provider"] {
+  if (!value || value === "template") {
+    return "template";
+  }
+
+  if (value === "openai") {
+    return "openai";
+  }
+
+  throw new Error("LLM_PROVIDER must be either template or openai.");
 }
 
 function parseCsv(value: string | undefined): readonly string[] {
