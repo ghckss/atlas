@@ -43,6 +43,16 @@ export function createDiscordGatewayClient(
         `Discord message handling failed. messageId=${message.id} channelId=${message.channelId}`,
         error
       );
+      try {
+        await message.reply({
+          content: truncateDiscordContent(formatDiscordGatewayErrorReply(error))
+        });
+      } catch (replyError) {
+        logger.error(
+          `Discord error reply failed. messageId=${message.id} channelId=${message.channelId}`,
+          replyError
+        );
+      }
     }
   });
 
@@ -97,6 +107,23 @@ export function truncateDiscordContent(content: string): string {
 
   const suffix = "\n...[truncated]";
   return `${content.slice(0, 2000 - suffix.length)}${suffix}`;
+}
+
+export function formatDiscordGatewayErrorReply(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (message.includes("OpenAI response failed with 429")) {
+    return [
+      "현재 LLM 제공자의 quota 또는 billing 제한 때문에 답변을 생성하지 못했습니다.",
+      "OpenAI API 결제/크레딧 상태를 확인하거나, `.env`의 `OPENAI_MODEL`/`OPENAI_API_KEY` 설정을 점검해주세요."
+    ].join("\n");
+  }
+
+  if (message.includes("OpenAI response failed")) {
+    return "현재 LLM 제공자 호출 중 오류가 발생했습니다. 서버 로그의 OpenAI 오류 내용을 확인해주세요.";
+  }
+
+  return "요청을 처리하는 중 오류가 발생했습니다. 서버 로그를 확인해주세요.";
 }
 
 async function handleGatewayMessage(

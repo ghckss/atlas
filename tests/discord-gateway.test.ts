@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   createDiscordGatewayClient,
   createLocalRuntime,
+  formatDiscordGatewayErrorReply,
   loadRuntimeConfig,
   roleForDiscordUser,
   truncateDiscordContent
@@ -25,6 +26,22 @@ test("Discord Gateway truncates messages to Discord content limits", () => {
   assert.equal(truncateDiscordContent("short"), "short");
   assert.equal(truncateDiscordContent("x".repeat(2100)).length, 2000);
   assert.match(truncateDiscordContent("x".repeat(2100)), /\[truncated\]$/);
+});
+
+test("Discord Gateway formats provider errors for users", () => {
+  assert.match(
+    formatDiscordGatewayErrorReply(
+      new Error("OpenAI response failed with 429: quota")
+    ),
+    /quota 또는 billing/
+  );
+  assert.match(
+    formatDiscordGatewayErrorReply(
+      new Error("OpenAI response failed with 500: upstream")
+    ),
+    /LLM 제공자 호출/
+  );
+  assert.match(formatDiscordGatewayErrorReply(new Error("boom")), /서버 로그/);
 });
 
 test("Discord Gateway client can be constructed without logging in", () => {

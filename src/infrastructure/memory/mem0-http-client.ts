@@ -116,32 +116,36 @@ function toMem0Metadata(
 function buildMem0SearchFilters(
   request: Mem0SearchRequest
 ): Record<string, unknown> {
-  const metadataFilters: Record<string, unknown> = {
-    namespace: {
-      in: request.scope.namespaces
-    }
-  };
+  const sharedMetadataFilters: Record<string, unknown> = {};
 
   if (request.scope.teamId) {
-    metadataFilters.team_id = request.scope.teamId;
+    sharedMetadataFilters.team_id = request.scope.teamId;
   }
 
   if (request.scope.organizationId) {
-    metadataFilters.organization_id = request.scope.organizationId;
+    sharedMetadataFilters.organization_id = request.scope.organizationId;
   }
 
   if (request.scope.projectId) {
-    metadataFilters.project_id = request.scope.projectId;
+    sharedMetadataFilters.project_id = request.scope.projectId;
   }
+  const namespaceFilters = request.scope.namespaces.map((namespace) => ({
+    metadata: {
+      ...sharedMetadataFilters,
+      namespace
+    }
+  }));
 
   return {
     AND: [
       {
         user_id: request.scope.userId
       },
-      {
-        metadata: metadataFilters
-      }
+      namespaceFilters.length === 1
+        ? namespaceFilters[0]
+        : {
+            OR: namespaceFilters
+          }
     ]
   };
 }

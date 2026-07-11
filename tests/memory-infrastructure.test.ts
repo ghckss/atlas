@@ -236,9 +236,7 @@ test("Mem0 HTTP client writes and searches memories through REST API", async () 
         },
         {
           metadata: {
-            namespace: {
-              in: ["personal"]
-            }
+            namespace: "personal"
           }
         }
       ]
@@ -248,6 +246,58 @@ test("Mem0 HTTP client writes and searches memories through REST API", async () 
   });
   assert.equal(results[0].record.content, "Prefers Korean status updates.");
   assert.equal(results[0].score, 0.9);
+});
+
+test("Mem0 HTTP client uses OR metadata filters for multiple namespaces", async () => {
+  const calls: RequestInit[] = [];
+  const client = new Mem0HttpClient({
+    apiKey: "mem0-key",
+    baseUrl: "https://mem0.example",
+    fetchImpl: async (_url, init) => {
+      calls.push(init ?? {});
+      return new Response(JSON.stringify({ results: [] }), { status: 200 });
+    }
+  });
+
+  await client.search({
+    scope: {
+      userId: "user-1",
+      namespaces: ["personal", "project"],
+      projectId: "project-a"
+    },
+    embedding: {
+      provider: "openai",
+      model: "text-embedding-3-small",
+      dimensions: 2,
+      values: [0.1, 0.2]
+    },
+    query: "hello",
+    limit: 5
+  });
+
+  assert.deepEqual(JSON.parse(String(calls[0].body)).filters, {
+    AND: [
+      {
+        user_id: "user-1"
+      },
+      {
+        OR: [
+          {
+            metadata: {
+              project_id: "project-a",
+              namespace: "personal"
+            }
+          },
+          {
+            metadata: {
+              project_id: "project-a",
+              namespace: "project"
+            }
+          }
+        ]
+      }
+    ]
+  });
 });
 
 test("Mem0 HTTP client includes response body in failed requests", async () => {
