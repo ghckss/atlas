@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -224,5 +225,30 @@ test("news briefing workflow declares JSON export and operating documentation", 
     newsBriefingWorkflow.environmentVariables.includes(
       "HERMES_NEWS_BRIEFING_WEBHOOK_URL"
     )
+  );
+  assert.ok(newsBriefingWorkflow.environmentVariables.includes("DISCORD_BOT_TOKEN"));
+});
+
+test("news briefing workflow sends Discord messages without n8n credentials", () => {
+  const workflow = JSON.parse(
+    readFileSync("workflows/news-briefing/news-briefing.n8n.json", "utf8")
+  );
+  const sendDiscord = workflow.nodes.find(
+    (node: { name?: string }) => node.name === "Send Discord"
+  );
+
+  assert.equal(sendDiscord.type, "n8n-nodes-base.httpRequest");
+  assert.equal(
+    sendDiscord.parameters.url,
+    "={{\"https://discord.com/api/v10/channels/\" + $env.NEWS_BRIEFING_DISCORD_CHANNEL_ID + \"/messages\"}}"
+  );
+  assert.deepEqual(
+    sendDiscord.parameters.headerParameters.parameters.find(
+      (header: { name?: string }) => header.name === "Authorization"
+    ),
+    {
+      name: "Authorization",
+      value: "={{\"Bot \" + $env.DISCORD_BOT_TOKEN}}"
+    }
   );
 });

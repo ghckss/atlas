@@ -28,6 +28,7 @@ export const newsBriefingWorkflow: WorkflowAsset = {
     "N8N_API_URL",
     "N8N_API_KEY",
     "N8N_WEBHOOK_SECRET",
+    "DISCORD_BOT_TOKEN",
     "HERMES_NEWS_COLLECTION_URL",
     "HERMES_NEWS_BRIEFING_WEBHOOK_URL",
     "NEWS_PROVIDERS",

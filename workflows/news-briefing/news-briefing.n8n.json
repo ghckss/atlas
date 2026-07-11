@@ -98,16 +98,36 @@
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "send",
-        "guildId": "={{$env.DISCORD_GUILD_ID}}",
-        "channelId": "={{$env.NEWS_BRIEFING_DISCORD_CHANNEL_ID}}",
-        "content": "={{$json.discordMessage}}"
+        "method": "POST",
+        "url": "={{\"https://discord.com/api/v10/channels/\" + $env.NEWS_BRIEFING_DISCORD_CHANNEL_ID + \"/messages\"}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{\"Bot \" + $env.DISCORD_BOT_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "={{$json.discordMessage}}"
+            }
+          ]
+        },
+        "responseFormat": "json"
       },
       "id": "send-discord",
       "name": "Send Discord",
-      "type": "n8n-nodes-base.discord",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         960,
         0
