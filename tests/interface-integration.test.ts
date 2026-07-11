@@ -180,6 +180,37 @@ test("news briefing webhook validates secret and delegates summary to Hermes", a
   assert.match(JSON.stringify(response.body), /researcher/);
 });
 
+test("news briefing webhook keeps Discord messages within content limits", async () => {
+  const service = new HermesNewsBriefingService(
+    new TaskPlanner(),
+    new SoulPipeline({
+      async execute() {
+        return "x".repeat(2500);
+      }
+    })
+  );
+  const handler = createNewsBriefingWebhookHandler(service, "secret");
+  const response = await handler({
+    headers: {
+      "x-n8n-webhook-secret": "secret"
+    },
+    body: {
+      articles: [
+        {
+          title: "Long briefing",
+          url: "https://example.com/long"
+        }
+      ]
+    }
+  });
+  const body = response.body as { discordMessage: string; shouldSend: boolean };
+
+  assert.equal(response.status, 200);
+  assert.equal(body.shouldSend, true);
+  assert.equal(body.discordMessage.length, 2000);
+  assert.match(body.discordMessage, /truncated for Discord message limit$/);
+});
+
 test("news briefing workflow declares JSON export and operating documentation", () => {
   assert.equal(
     newsBriefingWorkflow.jsonExportPath,

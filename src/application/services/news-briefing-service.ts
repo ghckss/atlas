@@ -21,6 +21,9 @@ export interface NewsBriefingResponse {
   articleCount: number;
 }
 
+const DISCORD_MESSAGE_LIMIT = 2000;
+const TRUNCATED_SUFFIX = "\n\n... truncated for Discord message limit";
+
 export class HermesNewsBriefingService {
   constructor(
     private readonly planner: TaskPlanner,
@@ -45,13 +48,24 @@ export class HermesNewsBriefingService {
       plan,
       memoryContext: formatArticles(request.articles)
     });
+    const discordMessage = formatDiscordMessage(pipeline.finalOutput);
 
     return {
-      shouldSend: pipeline.finalOutput.trim().length > 0,
-      discordMessage: pipeline.finalOutput,
+      shouldSend: discordMessage.length > 0,
+      discordMessage,
       articleCount: request.articles.length
     };
   }
+}
+
+function formatDiscordMessage(value: string): string {
+  const message = value.trim();
+
+  if (message.length <= DISCORD_MESSAGE_LIMIT) {
+    return message;
+  }
+
+  return `${message.slice(0, DISCORD_MESSAGE_LIMIT - TRUNCATED_SUFFIX.length).trimEnd()}${TRUNCATED_SUFFIX}`;
 }
 
 function formatArticles(articles: readonly NewsArticle[]): string {
