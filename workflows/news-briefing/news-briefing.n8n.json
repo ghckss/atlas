@@ -195,7 +195,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const threadId = $input.first()?.json?.id;\nconst prepared = $items('Prepare Discord Message')?.[0]?.json ?? {};\nconst threadMessages = Array.isArray(prepared.threadMessages)\n  ? prepared.threadMessages\n  : [];\n\nif (!threadId || threadMessages.length === 0) {\n  return [];\n}\n\nreturn threadMessages\n  .map((content, index) => ({\n    content: typeof content === 'string' ? content.trim() : '',\n    index: index + 1\n  }))\n  .filter((item) => item.content.length > 0)\n  .map((item) => ({\n    json: {\n      threadId,\n      index: item.index,\n      content: item.content\n    }\n  }));"
+        "jsCode": "const threadId = $input.first()?.json?.id;\nconst prepared = $('Prepare Discord Message').first()?.json ?? {};\nconst threadMessages = Array.isArray(prepared.threadMessages)\n  ? prepared.threadMessages\n  : [];\n\nif (!threadId || threadMessages.length === 0) {\n  return [];\n}\n\nreturn threadMessages\n  .map((content, index) => ({\n    content: typeof content === 'string' ? content.trim() : '',\n    index: index + 1\n  }))\n  .filter((item) => item.content.length > 0)\n  .map((item) => ({\n    json: {\n      threadId,\n      index: item.index,\n      content: item.content\n    }\n  }));"
       },
       "id": "prepare-thread-messages",
       "name": "Prepare Thread Messages",
@@ -203,6 +203,26 @@
       "typeVersion": 2,
       "position": [
         1920,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{String($json.content || \"\").trim()}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "has-prepared-thread-content",
+      "name": "Has Prepared Thread Content",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2160,
         0
       ]
     },
@@ -234,7 +254,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2160,
+        2400,
         0
       ]
     }
@@ -334,11 +354,23 @@
       "main": [
         [
           {
-            "node": "Send Thread Message",
+            "node": "Has Prepared Thread Content",
             "type": "main",
             "index": 0
           }
         ]
+      ]
+    },
+    "Has Prepared Thread Content": {
+      "main": [
+        [
+          {
+            "node": "Send Thread Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     }
   },

@@ -338,6 +338,9 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
   const prepareThreadMessages = workflow.nodes.find(
     (node: { name?: string }) => node.name === "Prepare Thread Messages"
   );
+  const hasPreparedThreadContent = workflow.nodes.find(
+    (node: { name?: string }) => node.name === "Has Prepared Thread Content"
+  );
   const sendThreadMessage = workflow.nodes.find(
     (node: { name?: string }) => node.name === "Send Thread Message"
   );
@@ -359,7 +362,12 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
   assert.match(createThread.parameters.url, /\/threads/);
   assert.equal(prepareThreadMessages.type, "n8n-nodes-base.code");
   assert.match(prepareThreadMessages.parameters.jsCode, /Prepare Discord Message/);
-  assert.match(prepareThreadMessages.parameters.jsCode, /\$items/);
+  assert.match(prepareThreadMessages.parameters.jsCode, /\$\('Prepare Discord Message'\)/);
+  assert.equal(hasPreparedThreadContent.type, "n8n-nodes-base.if");
+  assert.match(
+    hasPreparedThreadContent.parameters.conditions.string[0].value1,
+    /\$json\.content/
+  );
   assert.equal(sendThreadMessage.type, "n8n-nodes-base.httpRequest");
   assert.match(sendThreadMessage.parameters.url, /threadId/);
   assert.match(sendThreadMessage.parameters.jsonBody, /\$json\.content/);
@@ -395,6 +403,10 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
   );
   assert.equal(
     workflow.connections["Prepare Thread Messages"].main[0][0].node,
+    "Has Prepared Thread Content"
+  );
+  assert.equal(
+    workflow.connections["Has Prepared Thread Content"].main[0][0].node,
     "Send Thread Message"
   );
 });
