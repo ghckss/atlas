@@ -106,6 +106,7 @@ async function handleGatewayMessage(
   logger: DiscordGatewayLogger
 ): Promise<void> {
   const mentionedUserIds = message.mentions.users.map((user) => user.id);
+  const rawMentionedUserIds = extractRawMentionedUserIds(message.content);
   logger.info(
     [
       "Discord message received.",
@@ -116,7 +117,9 @@ async function handleGatewayMessage(
       `isDirectMessage=${message.guildId === null}`,
       `contentLength=${message.content.length}`,
       `mentionedUsers=${mentionedUserIds.length}`,
-      `mentionsConfiguredBot=${mentionedUserIds.includes(config.discord.botUserId)}`
+      `rawMentionedUsers=${rawMentionedUserIds.join(",") || "none"}`,
+      `mentionsConfiguredBot=${mentionedUserIds.includes(config.discord.botUserId)}`,
+      `rawMentionsConfiguredBot=${rawMentionedUserIds.includes(config.discord.botUserId)}`
     ].join(" ")
   );
 
@@ -180,6 +183,10 @@ async function handleGatewayMessage(
   logger.info(
     `Discord message produced no reply. messageId=${message.id} kind=${result.body.kind ?? "unknown"}`
   );
+}
+
+function extractRawMentionedUserIds(content: string): readonly string[] {
+  return [...content.matchAll(/<@!?(\d+)>/g)].map((match) => match[1]);
 }
 
 async function handleGatewayInteraction(
