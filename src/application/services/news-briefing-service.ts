@@ -95,7 +95,7 @@ function formatCompactBriefing(
         : `${remaining} more`
       : undefined;
 
-  return [title, "", ...entries, suffix].filter(Boolean).join("\n\n");
+  return [title, ...entries, suffix].filter(Boolean).join("\n");
 }
 
 function escapeMarkdownLinkText(value: string): string {

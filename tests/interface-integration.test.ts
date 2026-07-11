@@ -240,6 +240,11 @@ test("news briefing webhook uses compact Discord output for the local MVP runtim
           source: "조선일보",
           publishedAt: "Thu, 09 Jul 2026 15:57:04 GMT",
           summary: "<a href=\"https://example.com\">raw html</a>"
+        },
+        {
+          title: "오늘 봐야 할 주요 이슈",
+          url: "https://news.google.com/rss/articles/example-2",
+          source: "연합뉴스"
         }
       ]
     }
@@ -253,6 +258,11 @@ test("news briefing webhook uses compact Discord output for the local MVP runtim
     body.discordMessage,
     /\[범죄 막겠다며 AI로 민간인 감시\]\(https:\/\/news\.google\.com\/rss\/articles\/example\) \(조선일보\)/
   );
+  assert.match(
+    body.discordMessage,
+    /1\. \[범죄 막겠다며 AI로 민간인 감시\]\(https:\/\/news\.google\.com\/rss\/articles\/example\) \(조선일보\)\n2\. \[오늘 봐야 할 주요 이슈\]\(https:\/\/news\.google\.com\/rss\/articles\/example-2\) \(연합뉴스\)/
+  );
+  assert.doesNotMatch(body.discordMessage, /\n\n2\./);
   assert.doesNotMatch(body.discordMessage, /publishedAt=/);
   assert.doesNotMatch(body.discordMessage, /<a href/);
   assert.doesNotMatch(body.discordMessage, /로컬 MVP 런타임/);
@@ -296,6 +306,7 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
   assert.equal(sendDiscord.parameters.contentType, "json");
   assert.equal(sendDiscord.parameters.specifyBody, "json");
   assert.match(sendDiscord.parameters.jsonBody, /allowed_mentions/);
+  assert.match(sendDiscord.parameters.jsonBody, /flags: 4/);
   assert.deepEqual(
     sendDiscord.parameters.headerParameters.parameters.find(
       (header: { name?: string }) => header.name === "Authorization"

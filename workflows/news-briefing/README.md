@@ -44,7 +44,7 @@
 - `NEWS_SOURCE_URLS`
 - `NEWS_BRIEFING_DISCORD_CHANNEL_ID`
 
-Discord 전송은 n8n Discord credential을 사용하지 않는다. `Prepare Discord Message` 노드가 빈 메시지와 2000자 초과 메시지를 방어하고, `Send Discord` 노드는 HTTP Request로 Discord REST API를 직접 호출한다. `DISCORD_BOT_TOKEN`을 `Authorization: Bot ...` 헤더로 사용하며, body는 JSON `{ content, allowed_mentions }` 형식으로 전송한다.
+Discord 전송은 n8n Discord credential을 사용하지 않는다. `Prepare Discord Message` 노드가 빈 메시지와 2000자 초과 메시지를 방어하고, `Send Discord` 노드는 HTTP Request로 Discord REST API를 직접 호출한다. `DISCORD_BOT_TOKEN`을 `Authorization: Bot ...` 헤더로 사용하며, body는 JSON `{ content, flags, allowed_mentions }` 형식으로 전송한다. `flags=4`는 링크 embed preview를 억제한다.
 
 Git 저장 JSON export를 n8n API로 반영할 때 사용하는 값:
 
