@@ -60,7 +60,7 @@ export function routeDiscordMessage(
     };
   }
 
-  if (!input.mentionedUserIds.includes(config.botUserId)) {
+  if (!isBotMentioned(input, config.botUserId)) {
     return {
       kind: "ignore",
       reason: "missing-bot-mention"
@@ -80,6 +80,13 @@ export function routeDiscordMessage(
     kind: "chat",
     content
   };
+}
+
+function isBotMentioned(input: DiscordMessageInput, botUserId: string): boolean {
+  return (
+    input.mentionedUserIds.includes(botUserId) ||
+    new RegExp(`<@!?${escapeRegExp(botUserId)}>`, "g").test(input.content)
+  );
 }
 
 function stripBotMention(content: string, botUserId: string): string {

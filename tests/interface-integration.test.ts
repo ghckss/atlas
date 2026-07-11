@@ -74,6 +74,24 @@ test("Discord router only accepts mentions in the dedicated channel", () => {
       reason: "empty-mention"
     }
   );
+  assert.deepEqual(
+    routeDiscordMessage(
+      {
+        id: "message-4",
+        authorId: "user-1",
+        channelId: "channel-1",
+        content: "<@bot-1> fallback mention",
+        isBot: false,
+        isDirectMessage: false,
+        mentionedUserIds: []
+      },
+      config
+    ),
+    {
+      kind: "chat",
+      content: "fallback mention"
+    }
+  );
 });
 
 test("Discord DMs are limited to owners", () => {
