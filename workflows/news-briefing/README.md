@@ -7,8 +7,8 @@
 ## 트리거
 
 - n8n Schedule Trigger
-- 초기 설정은 24시간 간격 실행이다.
-- 현재 JSON export에는 고정 시각이 설정되어 있지 않다. workflow가 활성화된 시점과 n8n의 다음 실행 계산에 따라 24시간 간격으로 돈다.
+- 매일 10:00에 실행한다.
+- JSON export는 workflow timezone을 `Asia/Seoul`로 명시한다. n8n 인스턴스의 timezone 설정을 별도로 운영한다면 동일하게 `Asia/Seoul`로 맞춘다.
 
 ## 입력
 

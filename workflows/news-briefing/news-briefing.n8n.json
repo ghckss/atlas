@@ -6,8 +6,10 @@
         "rule": {
           "interval": [
             {
-              "field": "hours",
-              "hoursInterval": 24
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 10,
+              "triggerAtMinute": 0
             }
           ]
         }
@@ -376,7 +378,8 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "timezone": "Asia/Seoul"
   },
   "versionId": "initial-news-briefing",
   "meta": {

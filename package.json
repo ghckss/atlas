@@ -11,6 +11,7 @@
     "start": "node --env-file-if-exists=.env dist/src/runtime/main.js",
     "db:migrate": "node scripts/run-migrations.mjs",
     "n8n:sync": "node --env-file-if-exists=.env scripts/sync-n8n-workflows.mjs",
+    "logs:openai": "node --env-file-if-exists=.env scripts/tail-openai-log.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "pnpm typecheck",
     "test": "pnpm build && node --test dist/tests/*.test.js",

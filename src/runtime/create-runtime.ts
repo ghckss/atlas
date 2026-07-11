@@ -63,6 +63,7 @@ function createSoulRuntime(config: RuntimeConfig) {
       apiKey: config.llm.openaiApiKey ?? "",
       baseUrl: config.llm.openaiBaseUrl,
       model: config.llm.openaiModel,
+      logFilePath: config.llm.openaiLogFilePath,
       timeoutMs: config.llm.requestTimeoutMs
     });
   }

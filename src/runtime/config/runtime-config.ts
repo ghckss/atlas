@@ -10,6 +10,7 @@ export interface RuntimeConfig {
     openaiApiKey?: string;
     openaiBaseUrl: string;
     openaiModel: string;
+    openaiLogFilePath?: string;
     requestTimeoutMs: number;
   };
   discord: {
@@ -64,6 +65,10 @@ export function loadRuntimeConfig(
       openaiApiKey: env.OPENAI_API_KEY,
       openaiBaseUrl: env.OPENAI_BASE_URL ?? "https://api.openai.com",
       openaiModel: env.OPENAI_MODEL ?? "gpt-5.6",
+      openaiLogFilePath: parseOptionalPath(
+        env.OPENAI_LOG_FILE,
+        "logs/openai-runtime.log"
+      ),
       requestTimeoutMs: parsePositiveInteger(
         env.LLM_REQUEST_TIMEOUT_MS ?? "30000",
         "LLM_REQUEST_TIMEOUT_MS"
@@ -147,6 +152,18 @@ function requireValue(value: string | undefined, name: string): string {
   }
 
   return value;
+}
+
+function parseOptionalPath(
+  value: string | undefined,
+  defaultValue: string
+): string | undefined {
+  if (value === undefined) {
+    return defaultValue;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || undefined;
 }
 
 function parseLlmProvider(value: string | undefined): RuntimeConfig["llm"]["provider"] {

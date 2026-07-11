@@ -337,6 +337,25 @@ test("news briefing workflow declares JSON export and operating documentation", 
   assert.ok(newsBriefingWorkflow.environmentVariables.includes("DISCORD_BOT_TOKEN"));
 });
 
+test("news briefing workflow runs every day at 10 in Seoul timezone", () => {
+  const workflow = JSON.parse(
+    readFileSync("workflows/news-briefing/news-briefing.n8n.json", "utf8")
+  );
+  const schedule = workflow.nodes.find(
+    (node: { name?: string }) => node.name === "Daily Schedule"
+  );
+
+  assert.deepEqual(schedule.parameters.rule.interval, [
+    {
+      field: "days",
+      daysInterval: 1,
+      triggerAtHour: 10,
+      triggerAtMinute: 0
+    }
+  ]);
+  assert.equal(workflow.settings.timezone, "Asia/Seoul");
+});
+
 test("news briefing workflow sends Discord messages without n8n credentials", () => {
   const workflow = JSON.parse(
     readFileSync("workflows/news-briefing/news-briefing.n8n.json", "utf8")

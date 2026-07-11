@@ -73,9 +73,12 @@ MEM0_API_KEY=... pnpm dev
 LLM_PROVIDER=openai
 OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-5.6
+OPENAI_LOG_FILE=logs/openai-runtime.log
 ```
 
 `LLM_PROVIDER=template`는 로컬 wiring 검증용 응답기를 사용한다. Discord에서 실제 모델 답변을 받으려면 `openai`로 변경한 뒤 runtime을 재시작한다.
+
+OpenAI 실행 로그는 `pnpm logs:openai`로 실시간 확인할 수 있다.
 
 n8n Workflow 동기화:
 
@@ -83,7 +86,7 @@ n8n Workflow 동기화:
 N8N_API_URL=http://localhost:5678 N8N_API_KEY=... pnpm n8n:sync
 ```
 
-뉴스 브리핑 workflow는 `HERMES_NEWS_COLLECTION_URL`에서 article 목록을 가져온 뒤 Hermes webhook으로 요약을 위임합니다.
+뉴스 브리핑 workflow는 매일 10:00 Asia/Seoul에 실행되며, `HERMES_NEWS_COLLECTION_URL`에서 article 목록을 가져온 뒤 Hermes webhook으로 요약을 위임합니다.
 
 뉴스는 기본적으로 `NEWS_PROVIDERS=google-news-top`을 사용해 Google News Top Stories를 수집합니다. 관심 키워드 검색을 추가하려면 `NEWS_PROVIDERS=google-news-top,naver-news`와 `NEWS_QUERY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`을 설정합니다. `NEWS_SOURCE_URLS`는 수동 JSON/RSS source를 추가할 때만 사용합니다.
 

@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
@@ -134,6 +137,89 @@ test("OpenAISoulRuntime calls Responses API for Soul execution", async () => {
     JSON.parse(String(calls[0].init.body)).instructions,
     /Answer in Korean/
   );
+});
+
+test("OpenAISoulRuntime writes redacted JSONL execution logs", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "hermes-openai-log-"));
+  const logFilePath = join(directory, "openai-runtime.log");
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const runtime = new OpenAISoulRuntime({
+    apiKey: "openai-key",
+    model: "gpt-5.6",
+    baseUrl: "https://openai.example",
+    logFilePath,
+    fetchImpl: async () =>
+      new Response(JSON.stringify({ output_text: "실제 모델 응답" }), {
+        status: 200,
+        headers: {
+          "x-request-id": "req_123"
+        }
+      })
+  });
+
+  await runtime.execute({
+    soul: "default",
+    request: "민감한 사용자 요청",
+    memoryContext: "[Session History]\nuser: 민감한 사용자 요청"
+  });
+
+  const content = await readFile(logFilePath, "utf8");
+  const events = content.trim().split("\n").map((line) => JSON.parse(line));
+
+  assert.equal(events[0].event, "request_start");
+  assert.equal(events[0].model, "gpt-5.6");
+  assert.equal(events[0].soul, "default");
+  assert.equal(typeof events[0].requestBytes, "number");
+  assert.equal(events[1].event, "request_success");
+  assert.equal(events[1].status, 200);
+  assert.equal(events[1].requestId, "req_123");
+  assert.equal(typeof events[1].durationMs, "number");
+  assert.doesNotMatch(content, /민감한 사용자 요청/);
+  assert.doesNotMatch(content, /openai-key/);
+});
+
+test("OpenAISoulRuntime logs provider failures with status", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "hermes-openai-error-log-"));
+  const logFilePath = join(directory, "openai-runtime.log");
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const runtime = new OpenAISoulRuntime({
+    apiKey: "openai-key",
+    model: "gpt-5.6",
+    baseUrl: "https://openai.example",
+    logFilePath,
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            message: "You exceeded your current quota."
+          }
+        }),
+        {
+          status: 429,
+          headers: {
+            "x-request-id": "req_quota"
+          }
+        }
+      )
+  });
+
+  await assert.rejects(
+    () =>
+      runtime.execute({
+        soul: "default",
+        request: "안녕",
+        memoryContext: ""
+      }),
+    /OpenAI response failed with 429/
+  );
+
+  const content = await readFile(logFilePath, "utf8");
+  const events = content.trim().split("\n").map((line) => JSON.parse(line));
+
+  assert.equal(events[1].event, "request_error");
+  assert.equal(events[1].status, 429);
+  assert.equal(events[1].requestId, "req_quota");
+  assert.match(events[1].errorMessage, /current quota/);
 });
 
 test("HermesChatService records conversation and returns pipeline output", async () => {

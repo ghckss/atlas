@@ -20,6 +20,7 @@ test("runtime config loads required local MVP settings", () => {
     OPENAI_API_KEY: "openai-key",
     OPENAI_MODEL: "gpt-5.6",
     OPENAI_BASE_URL: "https://openai.example",
+    OPENAI_LOG_FILE: "logs/custom-openai.log",
     LLM_REQUEST_TIMEOUT_MS: "20000",
     NEWS_GOOGLE_LANGUAGE: "ko",
     NEWS_GOOGLE_COUNTRY: "KR",
@@ -44,6 +45,7 @@ test("runtime config loads required local MVP settings", () => {
   assert.equal(config.llm.openaiApiKey, "openai-key");
   assert.equal(config.llm.openaiModel, "gpt-5.6");
   assert.equal(config.llm.openaiBaseUrl, "https://openai.example");
+  assert.equal(config.llm.openaiLogFilePath, "logs/custom-openai.log");
   assert.equal(config.llm.requestTimeoutMs, 20000);
   assert.deepEqual(config.news.sourceUrls, [
     "https://news-a.example",
@@ -74,6 +76,7 @@ test("runtime config defaults news collection to Google News top stories", () =>
   assert.equal(config.news.maxArticles, 10);
   assert.equal(config.llm.provider, "template");
   assert.equal(config.llm.openaiModel, "gpt-5.6");
+  assert.equal(config.llm.openaiLogFilePath, "logs/openai-runtime.log");
 });
 
 test("runtime config can enable Discord Gateway with a token", () => {
