@@ -195,7 +195,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const threadId = $json.id;\nconst threadMessages = $node['Prepare Discord Message'].json.threadMessages || [];\n\nif (!threadId || threadMessages.length === 0) {\n  return [];\n}\n\nconst makePayload = (content) => ({\n  content,\n  flags: 4,\n  allowed_mentions: {\n    parse: []\n  }\n});\n\nreturn threadMessages.map((content, index) => ({\n  json: {\n    threadId,\n    index: index + 1,\n    discordPayload: makePayload(content)\n  }\n}));"
+        "jsCode": "const threadId = $input.first()?.json?.id;\nconst prepared = $items('Prepare Discord Message')?.[0]?.json ?? {};\nconst threadMessages = Array.isArray(prepared.threadMessages)\n  ? prepared.threadMessages\n  : [];\n\nif (!threadId || threadMessages.length === 0) {\n  return [];\n}\n\nreturn threadMessages\n  .map((content, index) => ({\n    content: typeof content === 'string' ? content.trim() : '',\n    index: index + 1\n  }))\n  .filter((item) => item.content.length > 0)\n  .map((item) => ({\n    json: {\n      threadId,\n      index: item.index,\n      content: item.content\n    }\n  }));"
       },
       "id": "prepare-thread-messages",
       "name": "Prepare Thread Messages",
@@ -226,7 +226,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{JSON.stringify($json.discordPayload)}}",
+        "jsonBody": "={{JSON.stringify({ content: $json.content, flags: 4, allowed_mentions: { parse: [] } })}}",
         "responseFormat": "json"
       },
       "id": "send-thread-message",

@@ -359,8 +359,11 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
   assert.match(createThread.parameters.url, /\/threads/);
   assert.equal(prepareThreadMessages.type, "n8n-nodes-base.code");
   assert.match(prepareThreadMessages.parameters.jsCode, /Prepare Discord Message/);
+  assert.match(prepareThreadMessages.parameters.jsCode, /\$items/);
   assert.equal(sendThreadMessage.type, "n8n-nodes-base.httpRequest");
   assert.match(sendThreadMessage.parameters.url, /threadId/);
+  assert.match(sendThreadMessage.parameters.jsonBody, /\$json\.content/);
+  assert.doesNotMatch(sendThreadMessage.parameters.jsonBody, /discordPayload/);
   assert.deepEqual(
     sendDiscord.parameters.headerParameters.parameters.find(
       (header: { name?: string }) => header.name === "Authorization"
