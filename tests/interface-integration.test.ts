@@ -212,6 +212,52 @@ test("news briefing webhook keeps Discord messages within content limits", async
   assert.match(body.discordMessage, /truncated for Discord message limit$/);
 });
 
+test("news briefing webhook uses compact Discord output for the local MVP runtime", async () => {
+  const service = new HermesNewsBriefingService(
+    new TaskPlanner(),
+    new SoulPipeline({
+      async execute(input) {
+        return [
+          `[${input.soul}] 이번 뉴스 브리핑을 조사하고 요약해줘`,
+          "",
+          input.memoryContext,
+          "",
+          "로컬 MVP 런타임 응답입니다. 실제 LLM provider 연결 전까지 이 응답기는 service wiring과 workflow 검증에 사용됩니다."
+        ].join("\n");
+      }
+    })
+  );
+  const handler = createNewsBriefingWebhookHandler(service, "secret");
+  const response = await handler({
+    headers: {
+      "x-n8n-webhook-secret": "secret"
+    },
+    body: {
+      articles: [
+        {
+          title: "범죄 막겠다며 AI로 민간인 감시",
+          url: "https://news.google.com/rss/articles/example",
+          source: "조선일보",
+          publishedAt: "Thu, 09 Jul 2026 15:57:04 GMT",
+          summary: "<a href=\"https://example.com\">raw html</a>"
+        }
+      ]
+    }
+  });
+  const body = response.body as { discordMessage: string; shouldSend: boolean };
+
+  assert.equal(response.status, 200);
+  assert.equal(body.shouldSend, true);
+  assert.match(body.discordMessage, /오늘의 뉴스 브리핑/);
+  assert.match(
+    body.discordMessage,
+    /\[범죄 막겠다며 AI로 민간인 감시\]\(https:\/\/news\.google\.com\/rss\/articles\/example\) \(조선일보\)/
+  );
+  assert.doesNotMatch(body.discordMessage, /publishedAt=/);
+  assert.doesNotMatch(body.discordMessage, /<a href/);
+  assert.doesNotMatch(body.discordMessage, /로컬 MVP 런타임/);
+});
+
 test("news briefing workflow declares JSON export and operating documentation", () => {
   assert.equal(
     newsBriefingWorkflow.jsonExportPath,

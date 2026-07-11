@@ -54,7 +54,7 @@ test("news source client collects Google News RSS by query", async () => {
               <link>https://example.com/google-ai</link>
               <source>Example News</source>
               <pubDate>Sat, 11 Jul 2026 09:00:00 GMT</pubDate>
-              <description><![CDATA[Short <b>RSS</b> summary]]></description>
+              <description>&lt;a href=&quot;https://example.com/google-ai&quot;&gt;Short &lt;b&gt;RSS&lt;/b&gt; summary&lt;/a&gt; &lt;font&gt;Example News&lt;/font&gt;</description>
             </item>
           </channel>
         </rss>
@@ -77,7 +77,7 @@ test("news source client collects Google News RSS by query", async () => {
         url: "https://example.com/google-ai",
         source: "Example News",
         publishedAt: "Sat, 11 Jul 2026 09:00:00 GMT",
-        summary: "Short RSS summary"
+        summary: "Short RSS summary Example News"
       }
     ]
   );

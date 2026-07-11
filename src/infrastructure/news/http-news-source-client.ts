@@ -270,10 +270,12 @@ function cleanText(value: string | undefined): string {
   }
 
   return decodeXmlEntities(
-    value
-      .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    decodeXmlEntities(value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1"))
       .replace(/<[^>]+>/g, "")
-  ).trim();
+      .replace(/\[(https?:\/\/[^\]]+)\]\((https?:\/\/[^)]+)\)/g, "$1")
+  )
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function decodeXmlEntities(value: string): string {
