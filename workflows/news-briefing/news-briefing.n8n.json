@@ -105,7 +105,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "={{\"Bot \" + $env.DISCORD_BOT_TOKEN}}"
+              "value": "={{String($env.DISCORD_BOT_TOKEN || \"\").startsWith(\"Bot \") ? String($env.DISCORD_BOT_TOKEN || \"\") : \"Bot \" + String($env.DISCORD_BOT_TOKEN || \"\")}}"
             },
             {
               "name": "Content-Type",

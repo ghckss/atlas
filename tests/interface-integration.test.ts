@@ -248,7 +248,7 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
     ),
     {
       name: "Authorization",
-      value: "={{\"Bot \" + $env.DISCORD_BOT_TOKEN}}"
+      value: "={{String($env.DISCORD_BOT_TOKEN || \"\").startsWith(\"Bot \") ? String($env.DISCORD_BOT_TOKEN || \"\") : \"Bot \" + String($env.DISCORD_BOT_TOKEN || \"\")}}"
     }
   );
 });
