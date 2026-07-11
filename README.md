@@ -75,7 +75,7 @@ N8N_API_URL=http://localhost:5678 N8N_API_KEY=... pnpm n8n:sync
 
 뉴스 브리핑 workflow는 `HERMES_NEWS_COLLECTION_URL`에서 article 목록을 가져온 뒤 Hermes webhook으로 요약을 위임합니다.
 
-뉴스는 기본적으로 `NEWS_PROVIDERS=google-news`와 `NEWS_QUERY`를 사용해 수집합니다. Naver 뉴스 검색을 추가하려면 `NEWS_PROVIDERS=google-news,naver-news`와 `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`을 설정합니다. `NEWS_SOURCE_URLS`는 수동 JSON/RSS source를 추가할 때만 사용합니다.
+뉴스는 기본적으로 `NEWS_PROVIDERS=google-news-top`을 사용해 Google News Top Stories를 수집합니다. 관심 키워드 검색을 추가하려면 `NEWS_PROVIDERS=google-news-top,naver-news`와 `NEWS_QUERY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`을 설정합니다. `NEWS_SOURCE_URLS`는 수동 JSON/RSS source를 추가할 때만 사용합니다.
 
 ## 구조
 

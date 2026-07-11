@@ -38,6 +38,7 @@ export const newsBriefingWorkflow: WorkflowAsset = {
     "NAVER_CLIENT_ID",
     "NAVER_CLIENT_SECRET",
     "NEWS_NAVER_DISPLAY",
+    "NEWS_MAX_ARTICLES",
     "NEWS_SOURCE_URLS",
     "NEWS_COLLECTION_TIMEOUT_MS",
     "NEWS_BRIEFING_DISCORD_CHANNEL_ID"

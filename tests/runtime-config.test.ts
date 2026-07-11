@@ -21,6 +21,7 @@ test("runtime config loads required local MVP settings", () => {
     NAVER_CLIENT_ID: "naver-id",
     NAVER_CLIENT_SECRET: "naver-secret",
     NEWS_NAVER_DISPLAY: "20",
+    NEWS_MAX_ARTICLES: "15",
     NEWS_SOURCE_URLS: "https://news-a.example, https://news-b.example",
     NEWS_COLLECTION_TIMEOUT_MS: "7000"
   });
@@ -45,20 +46,22 @@ test("runtime config loads required local MVP settings", () => {
   assert.equal(config.news.naverClientId, "naver-id");
   assert.equal(config.news.naverClientSecret, "naver-secret");
   assert.equal(config.news.naverDisplay, 20);
+  assert.equal(config.news.maxArticles, 15);
   assert.equal(config.news.collectionTimeoutMs, 7000);
 });
 
-test("runtime config defaults news collection to Google News by query", () => {
+test("runtime config defaults news collection to Google News top stories", () => {
   const config = loadRuntimeConfig({
     DISCORD_BOT_USER_ID: "bot-1",
     DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
     N8N_WEBHOOK_SECRET: "secret"
   });
 
-  assert.deepEqual(config.news.providers, ["google-news"]);
-  assert.equal(config.news.query, "AI");
+  assert.deepEqual(config.news.providers, ["google-news-top"]);
+  assert.equal(config.news.query, "");
   assert.equal(config.news.googleLanguage, "ko");
   assert.equal(config.news.googleCountry, "KR");
+  assert.equal(config.news.maxArticles, 10);
 });
 
 test("runtime config can enable Discord Gateway with a token", () => {

@@ -45,7 +45,8 @@ export async function handleRuntimeHttpRequest(
       googleCountry: config.news.googleCountry,
       naverClientId: config.news.naverClientId,
       naverClientSecret: config.news.naverClientSecret,
-      naverDisplay: config.news.naverDisplay
+      naverDisplay: config.news.naverDisplay,
+      maxArticles: config.news.maxArticles
     });
 
     return {

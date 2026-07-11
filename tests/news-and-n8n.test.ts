@@ -87,6 +87,57 @@ test("news source client collects Google News RSS by query", async () => {
   );
 });
 
+test("news source client collects Google News top stories without a query", async () => {
+  const requestedUrls: string[] = [];
+  const client = new HttpNewsSourceClient({
+    fetchImpl: async (url) => {
+      requestedUrls.push(String(url));
+
+      return new Response(
+        `
+        <rss>
+          <channel>
+            <item>
+              <title>Top story one</title>
+              <link>https://example.com/top-1</link>
+              <source>Top Source</source>
+            </item>
+            <item>
+              <title>Top story two</title>
+              <link>https://example.com/top-2</link>
+              <source>Top Source</source>
+            </item>
+          </channel>
+        </rss>
+        `,
+        { status: 200 }
+      );
+    }
+  });
+
+  assert.deepEqual(
+    await client.collect({
+      providers: ["google-news-top"],
+      googleLanguage: "ko",
+      googleCountry: "KR",
+      maxArticles: 1
+    }),
+    [
+      {
+        title: "Top story one",
+        url: "https://example.com/top-1",
+        source: "Top Source",
+        publishedAt: undefined,
+        summary: undefined
+      }
+    ]
+  );
+  assert.equal(
+    requestedUrls[0],
+    "https://news.google.com/rss?hl=ko&gl=KR&ceid=KR%3Ako"
+  );
+});
+
 test("news source client collects Naver News through the official search API", async () => {
   const calls: Array<{ url: string; headers: HeadersInit | undefined }> = [];
   const client = new HttpNewsSourceClient({

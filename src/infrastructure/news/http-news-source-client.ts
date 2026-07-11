@@ -14,6 +14,7 @@ export interface NewsCollectionRequest {
   naverClientId?: string;
   naverClientSecret?: string;
   naverDisplay?: number;
+  maxArticles?: number;
 }
 
 export class HttpNewsSourceClient {
@@ -39,6 +40,15 @@ export class HttpNewsSourceClient {
     const query = normalized.query?.trim();
     const tasks = sourceUrls.map((sourceUrl) => this.fetchSource(sourceUrl));
 
+    if (providers.has("google-news-top")) {
+      tasks.push(
+        this.fetchGoogleTopNews({
+          language: normalized.googleLanguage ?? "ko",
+          country: normalized.googleCountry ?? "KR"
+        })
+      );
+    }
+
     if (query && providers.has("google-news")) {
       tasks.push(
         this.fetchGoogleNews({
@@ -62,7 +72,10 @@ export class HttpNewsSourceClient {
 
     const results = await Promise.all(tasks);
 
-    return deduplicateArticles(results.flat());
+    return deduplicateArticles(results.flat()).slice(
+      0,
+      normalized.maxArticles ?? Number.POSITIVE_INFINITY
+    );
   }
 
   private async fetchSource(sourceUrl: string): Promise<readonly NewsArticle[]> {
@@ -88,6 +101,21 @@ export class HttpNewsSourceClient {
     url.searchParams.set("ceid", `${options.country}:${options.language}`);
 
     return readRssArticles(await this.fetchText(url.toString()), "google-news");
+  }
+
+  private async fetchGoogleTopNews(options: {
+    language: string;
+    country: string;
+  }): Promise<readonly NewsArticle[]> {
+    const url = new URL("https://news.google.com/rss");
+    url.searchParams.set("hl", options.language);
+    url.searchParams.set("gl", options.country);
+    url.searchParams.set("ceid", `${options.country}:${options.language}`);
+
+    return readRssArticles(
+      await this.fetchText(url.toString()),
+      "google-news-top"
+    );
   }
 
   private async fetchNaverNews(options: {

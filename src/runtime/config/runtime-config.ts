@@ -31,6 +31,7 @@ export interface RuntimeConfig {
     naverClientId?: string;
     naverClientSecret?: string;
     naverDisplay: number;
+    maxArticles: number;
     collectionTimeoutMs: number;
   };
 }
@@ -74,7 +75,7 @@ export function loadRuntimeConfig(
     news: {
       sourceUrls: newsSourceUrls,
       providers: parseNewsProviders(env.NEWS_PROVIDERS, newsSourceUrls),
-      query: env.NEWS_QUERY ?? "AI",
+      query: env.NEWS_QUERY ?? "",
       googleLanguage: env.NEWS_GOOGLE_LANGUAGE ?? "ko",
       googleCountry: env.NEWS_GOOGLE_COUNTRY ?? "KR",
       naverClientId: env.NAVER_CLIENT_ID,
@@ -82,6 +83,10 @@ export function loadRuntimeConfig(
       naverDisplay: parsePositiveInteger(
         env.NEWS_NAVER_DISPLAY ?? "10",
         "NEWS_NAVER_DISPLAY"
+      ),
+      maxArticles: parsePositiveInteger(
+        env.NEWS_MAX_ARTICLES ?? "10",
+        "NEWS_MAX_ARTICLES"
       ),
       collectionTimeoutMs: parsePositiveInteger(
         env.NEWS_COLLECTION_TIMEOUT_MS ?? "5000",
@@ -152,5 +157,5 @@ function parseNewsProviders(
     return ["source-url"];
   }
 
-  return ["google-news"];
+  return ["google-news-top"];
 }
