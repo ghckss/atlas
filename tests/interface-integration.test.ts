@@ -279,15 +279,23 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
   const workflow = JSON.parse(
     readFileSync("workflows/news-briefing/news-briefing.n8n.json", "utf8")
   );
+  const prepareDiscord = workflow.nodes.find(
+    (node: { name?: string }) => node.name === "Prepare Discord Message"
+  );
   const sendDiscord = workflow.nodes.find(
     (node: { name?: string }) => node.name === "Send Discord"
   );
 
+  assert.equal(prepareDiscord.type, "n8n-nodes-base.code");
+  assert.match(prepareDiscord.parameters.jsCode, /return \[\]/);
   assert.equal(sendDiscord.type, "n8n-nodes-base.httpRequest");
   assert.equal(
     sendDiscord.parameters.url,
     "={{\"https://discord.com/api/v10/channels/\" + $env.NEWS_BRIEFING_DISCORD_CHANNEL_ID + \"/messages\"}}"
   );
+  assert.equal(sendDiscord.parameters.contentType, "json");
+  assert.equal(sendDiscord.parameters.specifyBody, "json");
+  assert.match(sendDiscord.parameters.jsonBody, /allowed_mentions/);
   assert.deepEqual(
     sendDiscord.parameters.headerParameters.parameters.find(
       (header: { name?: string }) => header.name === "Authorization"
@@ -296,5 +304,13 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
       name: "Authorization",
       value: "={{String($env.DISCORD_BOT_TOKEN || \"\").startsWith(\"Bot \") ? String($env.DISCORD_BOT_TOKEN || \"\") : \"Bot \" + String($env.DISCORD_BOT_TOKEN || \"\")}}"
     }
+  );
+  assert.equal(
+    workflow.connections["Has Briefing"].main[0][0].node,
+    "Prepare Discord Message"
+  );
+  assert.equal(
+    workflow.connections["Prepare Discord Message"].main[0][0].node,
+    "Send Discord"
   );
 });

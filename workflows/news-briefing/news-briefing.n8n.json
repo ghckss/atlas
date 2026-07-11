@@ -98,6 +98,19 @@
     },
     {
       "parameters": {
+        "jsCode": "const rawMessage = $json.discordMessage ?? $json.body?.discordMessage;\nconst message = typeof rawMessage === 'string' ? rawMessage.trim() : '';\n\nif (!message) {\n  return [];\n}\n\nconst limit = 2000;\nconst suffix = '\\n\\n... truncated by n8n';\nconst discordMessage = message.length <= limit\n  ? message\n  : `${message.slice(0, limit - suffix.length).trimEnd()}${suffix}`;\n\nreturn [\n  {\n    json: {\n      ...$json,\n      discordMessage\n    }\n  }\n];"
+      },
+      "id": "prepare-discord-message",
+      "name": "Prepare Discord Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "={{\"https://discord.com/api/v10/channels/\" + $env.NEWS_BRIEFING_DISCORD_CHANNEL_ID + \"/messages\"}}",
         "sendHeaders": true,
@@ -114,14 +127,9 @@
           ]
         },
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "content",
-              "value": "={{$json.discordMessage}}"
-            }
-          ]
-        },
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ content: $json.discordMessage, allowed_mentions: { parse: [] } })}}",
         "responseFormat": "json"
       },
       "id": "send-discord",
@@ -129,7 +137,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        960,
+        1200,
         0
       ]
     }
@@ -172,12 +180,23 @@
       "main": [
         [
           {
-            "node": "Send Discord",
+            "node": "Prepare Discord Message",
             "type": "main",
             "index": 0
           }
         ],
         []
+      ]
+    },
+    "Prepare Discord Message": {
+      "main": [
+        [
+          {
+            "node": "Send Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },

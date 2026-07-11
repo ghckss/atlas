@@ -60,7 +60,7 @@ pnpm n8n:sync
 
 동기화 스크립트는 workflow name을 기준으로 기존 workflow를 찾아 `PUT`으로 업데이트하고, 없으면 `POST`로 생성한다.
 
-뉴스 브리핑의 `Send Discord` 노드는 n8n Discord credential을 사용하지 않는다. n8n 컨테이너 env의 `DISCORD_BOT_TOKEN`과 `NEWS_BRIEFING_DISCORD_CHANNEL_ID`를 사용해 Discord REST API를 직접 호출한다.
+뉴스 브리핑의 `Send Discord` 노드는 n8n Discord credential을 사용하지 않는다. n8n 컨테이너 env의 `DISCORD_BOT_TOKEN`과 `NEWS_BRIEFING_DISCORD_CHANNEL_ID`를 사용해 Discord REST API를 직접 호출한다. `Prepare Discord Message` 노드는 빈 메시지를 걸러내고 Discord 2000자 제한을 재확인하며, `Send Discord`는 raw JSON body로 `{ content, allowed_mentions }`를 전송한다.
 
 ## 검증
 
