@@ -37,9 +37,12 @@ export function createDiscordGatewayClient(
 
   client.on(Events.MessageCreate, async (message) => {
     try {
-      await handleGatewayMessage(message, runtime, config);
+      await handleGatewayMessage(message, runtime, config, logger);
     } catch (error) {
-      logger.error("Discord message handling failed.", error);
+      logger.error(
+        `Discord message handling failed. messageId=${message.id} channelId=${message.channelId}`,
+        error
+      );
     }
   });
 
@@ -49,6 +52,10 @@ export function createDiscordGatewayClient(
     } catch (error) {
       logger.error("Discord interaction handling failed.", error);
     }
+  });
+
+  client.on(Events.Error, (error) => {
+    logger.error("Discord Gateway emitted an error.", error);
   });
 
   return client;
@@ -69,6 +76,9 @@ export async function startDiscordGateway(
   }
 
   const client = createDiscordGatewayClient(runtime, config, logger);
+  logger.info(
+    `Discord Gateway login starting. botUserId=${config.discord.botUserId} dedicatedChannelId=${config.discord.dedicatedChannelId}`
+  );
   await client.login(config.discord.token);
   return client;
 }
@@ -92,8 +102,24 @@ export function truncateDiscordContent(content: string): string {
 async function handleGatewayMessage(
   message: Message,
   runtime: LocalRuntime,
-  config: RuntimeConfig
+  config: RuntimeConfig,
+  logger: DiscordGatewayLogger
 ): Promise<void> {
+  const mentionedUserIds = message.mentions.users.map((user) => user.id);
+  logger.info(
+    [
+      "Discord message received.",
+      `messageId=${message.id}`,
+      `channelId=${message.channelId}`,
+      `authorId=${message.author.id}`,
+      `isBot=${message.author.bot}`,
+      `isDirectMessage=${message.guildId === null}`,
+      `contentLength=${message.content.length}`,
+      `mentionedUsers=${mentionedUserIds.length}`,
+      `mentionsConfiguredBot=${mentionedUserIds.includes(config.discord.botUserId)}`
+    ].join(" ")
+  );
+
   const result = await handleRuntimeDiscordMessage(
     {
       id: message.id,
@@ -102,29 +128,58 @@ async function handleGatewayMessage(
       content: message.content,
       isBot: message.author.bot,
       isDirectMessage: message.guildId === null,
-      mentionedUserIds: message.mentions.users.map((user) => user.id),
+      mentionedUserIds,
       sessionId: message.channelId,
       userRole: roleForDiscordUser(message.author.id, config)
     },
     runtime
   );
 
-  if (result.status === 202 || result.status >= 400) {
+  if (result.status === 202) {
+    logger.info(
+      `Discord message ignored. messageId=${message.id} reason=${result.body.reason ?? "unknown"}`
+    );
+    return;
+  }
+
+  if (result.status >= 400) {
+    logger.error(
+      `Discord message rejected. messageId=${message.id} status=${result.status} error=${result.body.error ?? "unknown"}`
+    );
     return;
   }
 
   if (result.body.kind === "chat" && result.body.answer) {
+    logger.info(
+      [
+        "Discord message routed to chat.",
+        `messageId=${message.id}`,
+        `answerLength=${result.body.answer.length}`,
+        `memoryCount=${result.body.memoryCount ?? 0}`,
+        `souls=${result.body.souls?.join(",") ?? ""}`
+      ].join(" ")
+    );
     await message.reply({
       content: truncateDiscordContent(result.body.answer)
     });
+    logger.info(`Discord reply sent. messageId=${message.id}`);
     return;
   }
 
   if (result.body.kind === "admin-dm" && result.body.content) {
+    logger.info(
+      `Discord admin DM acknowledged. messageId=${message.id} contentLength=${result.body.content.length}`
+    );
     await message.reply({
       content: truncateDiscordContent(result.body.content)
     });
+    logger.info(`Discord admin DM reply sent. messageId=${message.id}`);
+    return;
   }
+
+  logger.info(
+    `Discord message produced no reply. messageId=${message.id} kind=${result.body.kind ?? "unknown"}`
+  );
 }
 
 async function handleGatewayInteraction(
