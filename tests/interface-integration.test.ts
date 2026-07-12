@@ -542,6 +542,7 @@ test("schedule briefing workflow declares automation and Discord delivery", () =
   ]);
   assert.match(prepareRequests.parameters.jsCode, /mode: 'daily'/);
   assert.match(prepareRequests.parameters.jsCode, /mode: 'monthly'/);
+  assert.doesNotMatch(prepareRequests.parameters.jsCode, /\$env/);
   assert.equal(
     requestBriefing.parameters.url,
     "={{$env.HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL}}"

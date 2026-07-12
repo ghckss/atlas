@@ -25,7 +25,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const shifted = new Date(Date.now() + 9 * 60 * 60 * 1000);\nconst year = shifted.getUTCFullYear();\nconst month = String(shifted.getUTCMonth() + 1).padStart(2, '0');\nconst day = String(shifted.getUTCDate()).padStart(2, '0');\nconst date = `${year}-${month}-${day}`;\nconst channelId = $env.SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID;\nconst requests = [\n  {\n    mode: 'daily',\n    date,\n    discordChannelId: channelId\n  }\n];\n\nif (day === '01') {\n  requests.push({\n    mode: 'monthly',\n    date,\n    discordChannelId: channelId\n  });\n}\n\nreturn requests.map((webhookBody) => ({\n  json: {\n    webhookBody\n  }\n}));"
+        "jsCode": "const shifted = new Date(Date.now() + 9 * 60 * 60 * 1000);\nconst year = shifted.getUTCFullYear();\nconst month = String(shifted.getUTCMonth() + 1).padStart(2, '0');\nconst day = String(shifted.getUTCDate()).padStart(2, '0');\nconst date = `${year}-${month}-${day}`;\nconst requests = [\n  {\n    mode: 'daily',\n    date\n  }\n];\n\nif (day === '01') {\n  requests.push({\n    mode: 'monthly',\n    date\n  });\n}\n\nreturn requests.map((webhookBody) => ({\n  json: {\n    webhookBody\n  }\n}));"
       },
       "id": "prepare-schedule-requests",
       "name": "Prepare Schedule Requests",
