@@ -15,7 +15,6 @@ export interface RuntimeConfig {
     codexCliModel?: string;
     codexCliProfile?: string;
     codexCliSandbox: "read-only" | "workspace-write" | "danger-full-access";
-    codexCliApprovalPolicy: "untrusted" | "on-request" | "never";
     codexCliWorkdir?: string;
     codexCliUseOss: boolean;
     codexCliLocalProvider?: string;
@@ -78,9 +77,6 @@ export function loadRuntimeConfig(
       codexCliModel: parseOptionalText(env.CODEX_CLI_MODEL),
       codexCliProfile: parseOptionalText(env.CODEX_CLI_PROFILE),
       codexCliSandbox: parseCodexCliSandbox(env.CODEX_CLI_SANDBOX),
-      codexCliApprovalPolicy: parseCodexCliApprovalPolicy(
-        env.CODEX_CLI_APPROVAL_POLICY
-      ),
       codexCliWorkdir: parseOptionalText(env.CODEX_CLI_WORKDIR),
       codexCliUseOss: parseBoolean(env.CODEX_CLI_OSS),
       codexCliLocalProvider: parseOptionalText(env.CODEX_CLI_LOCAL_PROVIDER),
@@ -198,22 +194,6 @@ function parseCodexCliSandbox(
 
   throw new Error(
     "CODEX_CLI_SANDBOX must be read-only, workspace-write, or danger-full-access."
-  );
-}
-
-function parseCodexCliApprovalPolicy(
-  value: string | undefined
-): RuntimeConfig["llm"]["codexCliApprovalPolicy"] {
-  if (!value) {
-    return "never";
-  }
-
-  if (value === "untrusted" || value === "on-request" || value === "never") {
-    return value;
-  }
-
-  throw new Error(
-    "CODEX_CLI_APPROVAL_POLICY must be untrusted, on-request, or never."
   );
 }
 

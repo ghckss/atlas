@@ -19,7 +19,6 @@
 - `CODEX_CLI_MODEL`
 - `CODEX_CLI_PROFILE`
 - `CODEX_CLI_SANDBOX`
-- `CODEX_CLI_APPROVAL_POLICY`
 - `CODEX_CLI_WORKDIR`
 - `CODEX_CLI_OSS`
 - `CODEX_CLI_LOCAL_PROVIDER`
@@ -95,12 +94,11 @@ CODEX_CLI_COMMAND=codex
 CODEX_CLI_MODEL=
 CODEX_CLI_PROFILE=
 CODEX_CLI_SANDBOX=read-only
-CODEX_CLI_APPROVAL_POLICY=never
 CODEX_CLI_WORKDIR=/Users/hwanghochan/workspace/private/ai-assistant-platform
 LLM_REQUEST_TIMEOUT_MS=120000
 ```
 
-Codex CLI provider는 `codex exec`를 stdin 기반으로 실행하고 최종 메시지만 Discord 응답으로 사용한다. 기본값은 `read-only` sandbox와 `never` approval이므로 답변 생성 중 파일을 수정하지 않는다. 저장소 파일 분석까지 CLI에 맡기고 싶을 때만 `CODEX_CLI_WORKDIR`를 프로젝트 경로로 지정한다.
+Codex CLI provider는 `codex exec`를 stdin 기반으로 실행하고 최종 메시지만 Discord 응답으로 사용한다. 기본값은 `read-only` sandbox이므로 답변 생성 중 파일을 수정하지 않는다. 저장소 파일 분석까지 CLI에 맡기고 싶을 때만 `CODEX_CLI_WORKDIR`를 프로젝트 경로로 지정한다.
 
 Ollama 또는 LM Studio 같은 Codex CLI의 OSS/local provider를 쓰려면 다음 값을 추가한다.
 

@@ -10,7 +10,6 @@ export interface CodexCliSoulRuntimeOptions {
   model?: string;
   profile?: string;
   sandbox?: CodexCliSandbox;
-  approvalPolicy?: CodexCliApprovalPolicy;
   workingDirectory?: string;
   timeoutMs?: number;
   logFilePath?: string;
@@ -23,11 +22,6 @@ export type CodexCliSandbox =
   | "read-only"
   | "workspace-write"
   | "danger-full-access";
-
-export type CodexCliApprovalPolicy =
-  | "untrusted"
-  | "on-request"
-  | "never";
 
 export interface CodexCliCommandExecutorInput {
   command: string;
@@ -58,7 +52,6 @@ export interface CodexCliRuntimeLogEvent {
   model?: string;
   profile?: string;
   sandbox: CodexCliSandbox;
-  approvalPolicy: CodexCliApprovalPolicy;
   workingDirectory?: string;
   useOss: boolean;
   localProvider?: string;
@@ -80,7 +73,6 @@ export interface CodexCliRuntimeLogEvent {
 
 const DEFAULT_COMMAND = "codex";
 const DEFAULT_SANDBOX: CodexCliSandbox = "read-only";
-const DEFAULT_APPROVAL_POLICY: CodexCliApprovalPolicy = "never";
 const DEFAULT_TIMEOUT_MS = 30000;
 const MAX_CAPTURE_BYTES = 65536;
 
@@ -99,7 +91,6 @@ export class CodexCliSoulRuntime implements SoulRuntime {
   private readonly model?: string;
   private readonly profile?: string;
   private readonly sandbox: CodexCliSandbox;
-  private readonly approvalPolicy: CodexCliApprovalPolicy;
   private readonly workingDirectory?: string;
   private readonly timeoutMs: number;
   private readonly logFilePath?: string;
@@ -112,7 +103,6 @@ export class CodexCliSoulRuntime implements SoulRuntime {
     this.model = options.model?.trim() || undefined;
     this.profile = options.profile?.trim() || undefined;
     this.sandbox = options.sandbox ?? DEFAULT_SANDBOX;
-    this.approvalPolicy = options.approvalPolicy ?? DEFAULT_APPROVAL_POLICY;
     this.workingDirectory = options.workingDirectory?.trim() || undefined;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.logFilePath = options.logFilePath?.trim() || undefined;
@@ -202,8 +192,6 @@ export class CodexCliSoulRuntime implements SoulRuntime {
       "exec",
       "--sandbox",
       this.sandbox,
-      "--ask-for-approval",
-      this.approvalPolicy,
       "--ephemeral",
       "--skip-git-repo-check",
       "--color",
@@ -263,7 +251,6 @@ export class CodexCliSoulRuntime implements SoulRuntime {
       model: this.model,
       profile: this.profile,
       sandbox: this.sandbox,
-      approvalPolicy: this.approvalPolicy,
       workingDirectory: this.workingDirectory,
       useOss: this.useOss,
       localProvider: this.localProvider,

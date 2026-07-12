@@ -75,7 +75,6 @@ function createSoulRuntime(config: RuntimeConfig) {
       model: config.llm.codexCliModel,
       profile: config.llm.codexCliProfile,
       sandbox: config.llm.codexCliSandbox,
-      approvalPolicy: config.llm.codexCliApprovalPolicy,
       workingDirectory: config.llm.codexCliWorkdir,
       logFilePath: config.llm.logFilePath,
       timeoutMs: config.llm.requestTimeoutMs,

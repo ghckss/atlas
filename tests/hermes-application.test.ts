@@ -239,7 +239,6 @@ test("CodexCliSoulRuntime executes codex exec and reads final output", async (t)
     command: "codex-test",
     model: "gpt-5.6-codex",
     sandbox: "read-only",
-    approvalPolicy: "never",
     workingDirectory: "/tmp/hermes-project",
     logFilePath,
     commandExecutor: async (input) => {
@@ -278,10 +277,7 @@ test("CodexCliSoulRuntime executes codex exec and reads final output", async (t)
     calls[0].args[calls[0].args.indexOf("--sandbox") + 1],
     "read-only"
   );
-  assert.equal(
-    calls[0].args[calls[0].args.indexOf("--ask-for-approval") + 1],
-    "never"
-  );
+  assert.equal(calls[0].args.includes("--ask-for-approval"), false);
   assert.equal(calls[0].workingDirectory, "/tmp/hermes-project");
   assert.match(calls[0].prompt, /Answer in Korean/);
   assert.match(calls[0].prompt, /Do not modify files/);
