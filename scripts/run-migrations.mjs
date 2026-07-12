@@ -52,7 +52,7 @@ try {
     }
   }
 } catch (error) {
-  console.error(error instanceof Error ? error.message : error);
+  console.error(formatMigrationError(error));
   process.exitCode = 1;
 } finally {
   await client.end();
@@ -72,4 +72,36 @@ async function markExistingBaseline(filename, relationName) {
     "INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING",
     [filename]
   );
+}
+
+function formatMigrationError(error) {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  const lines = [`${error.name}: ${error.message || "migration failed"}`];
+
+  if ("code" in error && error.code) {
+    lines[0] += ` (${error.code})`;
+  }
+
+  if (Array.isArray(error.errors)) {
+    for (const inner of error.errors) {
+      if (!(inner instanceof Error)) {
+        continue;
+      }
+
+      const detail = [
+        inner.message,
+        "code" in inner && inner.code ? `code=${inner.code}` : undefined,
+        "address" in inner && inner.address ? `address=${inner.address}` : undefined,
+        "port" in inner && inner.port ? `port=${inner.port}` : undefined
+      ]
+        .filter(Boolean)
+        .join(" ");
+      lines.push(`- ${detail}`);
+    }
+  }
+
+  return lines.join("\n");
 }
