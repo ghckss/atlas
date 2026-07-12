@@ -76,9 +76,9 @@ OPENAI_MODEL=gpt-5.6
 OPENAI_LOG_FILE=logs/openai-runtime.log
 ```
 
-`LLM_PROVIDER=template`는 로컬 wiring 검증용 응답기를 사용한다. Discord에서 실제 모델 답변을 받으려면 `openai`로 변경한 뒤 runtime을 재시작한다.
+`LLM_PROVIDER=template`는 로컬 wiring 검증용 응답기를 사용한다. Discord에서 실제 모델 답변을 받으려면 `openai` 또는 `codex-cli`로 변경한 뒤 runtime을 재시작한다.
 
-OpenAI 실행 로그는 `pnpm logs:openai`로 실시간 확인할 수 있다.
+LLM 실행 로그는 provider와 무관하게 `pnpm logs`로 실시간 확인할 수 있다.
 
 n8n Workflow 동기화:
 

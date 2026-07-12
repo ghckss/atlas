@@ -73,17 +73,19 @@ OpenAI provider는 Responses API를 호출한다.
 
 OpenAI runtime 로그는 `OPENAI_LOG_FILE`에 JSON Lines 형식으로 저장한다. 프롬프트 본문과 API key는 저장하지 않고, `soul`, `model`, 요청/응답 크기, 상태 코드, request id, duration, 오류 메시지 같은 운영 진단 정보만 남긴다.
 
-최근 로그를 확인하면서 실시간으로 따라가려면 다음 명령을 사용한다.
+최근 LLM 로그를 확인하면서 실시간으로 따라가려면 provider와 무관하게 다음 명령을 사용한다.
 
 ```bash
-pnpm logs:openai
+pnpm logs
 ```
 
 마지막 100줄만 보고 종료하려면 다음처럼 실행한다.
 
 ```bash
-pnpm logs:openai -- --latest
+pnpm logs -- --latest
 ```
+
+`pnpm logs`는 `.env`의 `LLM_PROVIDER` 값을 보고 `OPENAI_LOG_FILE` 또는 `CODEX_CLI_LOG_FILE`을 자동으로 선택한다. 두 provider 로그를 한 번에 보고 싶으면 `pnpm logs -- --all`을 사용한다.
 
 OpenAI API key 대신 로컬 Codex CLI를 통해 답변을 생성하려면 먼저 터미널에서 `codex login` 또는 사용할 로컬 provider 설정을 완료한 뒤 다음 값을 설정한다.
 
@@ -108,12 +110,7 @@ CODEX_CLI_OSS=true
 CODEX_CLI_LOCAL_PROVIDER=ollama
 ```
 
-Codex CLI runtime 로그도 JSON Lines 형식이며 프롬프트 본문은 저장하지 않는다.
-
-```bash
-pnpm logs:codex
-pnpm logs:codex -- --latest
-```
+Codex CLI runtime 로그도 JSON Lines 형식이며 프롬프트 본문은 저장하지 않는다. 로그 확인 커맨드는 OpenAI와 동일하게 `pnpm logs`를 사용한다.
 
 ## n8n Workflow 운영
 
