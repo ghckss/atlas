@@ -25,7 +25,7 @@
     },
     {
       "parameters": {
-        "url": "={{$env.HERMES_NEWS_COLLECTION_URL}}",
+        "url": "{{ENV:HERMES_NEWS_COLLECTION_URL}}",
         "responseFormat": "json"
       },
       "id": "collect-news",
@@ -40,13 +40,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.HERMES_NEWS_BRIEFING_WEBHOOK_URL}}",
+        "url": "{{ENV:HERMES_NEWS_BRIEFING_WEBHOOK_URL}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-n8n-webhook-secret",
-              "value": "={{$env.N8N_WEBHOOK_SECRET}}"
+              "value": "{{ENV:N8N_WEBHOOK_SECRET}}"
             }
           ]
         },
@@ -114,13 +114,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{\"https://discord.com/api/v10/channels/\" + $env.NEWS_BRIEFING_DISCORD_CHANNEL_ID + \"/messages\"}}",
+        "url": "https://discord.com/api/v10/channels/{{ENV:NEWS_BRIEFING_DISCORD_CHANNEL_ID}}/messages",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
-              "value": "={{String($env.DISCORD_BOT_TOKEN || \"\").startsWith(\"Bot \") ? String($env.DISCORD_BOT_TOKEN || \"\") : \"Bot \" + String($env.DISCORD_BOT_TOKEN || \"\")}}"
+              "value": "{{ENV:DISCORD_BOT_TOKEN_AUTH_HEADER}}"
             },
             {
               "name": "Content-Type",
@@ -166,13 +166,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{\"https://discord.com/api/v10/channels/\" + $env.NEWS_BRIEFING_DISCORD_CHANNEL_ID + \"/messages/\" + $json.id + \"/threads\"}}",
+        "url": "={{\"https://discord.com/api/v10/channels/{{ENV:NEWS_BRIEFING_DISCORD_CHANNEL_ID}}/messages/\" + $json.id + \"/threads\"}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
-              "value": "={{String($env.DISCORD_BOT_TOKEN || \"\").startsWith(\"Bot \") ? String($env.DISCORD_BOT_TOKEN || \"\") : \"Bot \" + String($env.DISCORD_BOT_TOKEN || \"\")}}"
+              "value": "{{ENV:DISCORD_BOT_TOKEN_AUTH_HEADER}}"
             },
             {
               "name": "Content-Type",
@@ -237,7 +237,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "={{String($env.DISCORD_BOT_TOKEN || \"\").startsWith(\"Bot \") ? String($env.DISCORD_BOT_TOKEN || \"\") : \"Bot \" + String($env.DISCORD_BOT_TOKEN || \"\")}}"
+              "value": "{{ENV:DISCORD_BOT_TOKEN_AUTH_HEADER}}"
             },
             {
               "name": "Content-Type",

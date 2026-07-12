@@ -19,14 +19,22 @@ for (const workflowName of readdirSync(workflowsDir)) {
     continue;
   }
 
+  const jsonContent = readFileSync(jsonPath, "utf8");
+
   if (!existsSync(readmePath)) {
     failures.push(`${workflowName}: missing README.md`);
   }
 
   try {
-    JSON.parse(readFileSync(jsonPath, "utf8"));
+    JSON.parse(jsonContent);
   } catch (error) {
     failures.push(`${workflowName}: invalid JSON (${error.message})`);
+  }
+
+  if (jsonContent.includes("$env")) {
+    failures.push(
+      `${workflowName}: use {{ENV:NAME}} sync-time placeholders instead of n8n $env access`
+    );
   }
 }
 

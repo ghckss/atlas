@@ -26,7 +26,9 @@ for (const workflowName of readdirSync(workflowsDir)) {
     `${workflowName}.n8n.json`
   );
   const workflow = JSON.parse(readFileSync(jsonPath, "utf8"));
-  const workflowPayload = toN8nWorkflowPayload(workflow);
+  const workflowPayload = toN8nWorkflowPayload(
+    resolveEnvironmentPlaceholders(workflow, workflow.name)
+  );
   const existing = existingList.find((candidate) => candidate.name === workflow.name);
 
   if (existing?.id) {
@@ -52,6 +54,79 @@ function toN8nWorkflowPayload(workflow) {
     connections: workflow.connections ?? {},
     settings: workflow.settings ?? {}
   };
+}
+
+function resolveEnvironmentPlaceholders(value, workflowName) {
+  if (typeof value === "string") {
+    return value.replace(/\{\{ENV:([A-Z0-9_]+)\}\}/g, (_match, name) =>
+      resolveEnvironmentValue(name, workflowName)
+    );
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveEnvironmentPlaceholders(item, workflowName));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [
+        key,
+        resolveEnvironmentPlaceholders(nestedValue, workflowName)
+      ])
+    );
+  }
+
+  return value;
+}
+
+function resolveEnvironmentValue(name, workflowName) {
+  if (name === "DISCORD_BOT_TOKEN_AUTH_HEADER") {
+    const token = requireEnvironmentValue("DISCORD_BOT_TOKEN", workflowName);
+    return token.startsWith("Bot ") ? token : `Bot ${token}`;
+  }
+
+  return requireEnvironmentValue(name, workflowName);
+}
+
+function requireEnvironmentValue(name, workflowName) {
+  const value = process.env[name] ?? fallbackEnvironmentValue(name);
+
+  if (!value) {
+    throw new Error(
+      `${name} is required to sync n8n workflow "${workflowName}".`
+    );
+  }
+
+  return value;
+}
+
+function fallbackEnvironmentValue(name) {
+  if (name === "HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL") {
+    return deriveScheduleWebhookUrl();
+  }
+
+  if (name === "SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID") {
+    return process.env.NEWS_BRIEFING_DISCORD_CHANNEL_ID;
+  }
+
+  return undefined;
+}
+
+function deriveScheduleWebhookUrl() {
+  const newsWebhookUrl = process.env.HERMES_NEWS_BRIEFING_WEBHOOK_URL;
+
+  if (!newsWebhookUrl) {
+    return undefined;
+  }
+
+  if (!/\/webhooks\/news-briefing$/.test(newsWebhookUrl)) {
+    return undefined;
+  }
+
+  return newsWebhookUrl.replace(
+    /\/webhooks\/news-briefing$/,
+    "/webhooks/schedule-briefing"
+  );
 }
 
 async function request(path, init) {

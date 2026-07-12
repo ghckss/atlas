@@ -39,13 +39,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL}}",
+        "url": "{{ENV:HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-n8n-webhook-secret",
-              "value": "={{$env.N8N_WEBHOOK_SECRET}}"
+              "value": "{{ENV:N8N_WEBHOOK_SECRET}}"
             }
           ]
         },
@@ -100,13 +100,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{\"https://discord.com/api/v10/channels/\" + $env.SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID + \"/messages\"}}",
+        "url": "https://discord.com/api/v10/channels/{{ENV:SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID}}/messages",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
-              "value": "={{String($env.DISCORD_BOT_TOKEN || \"\").startsWith(\"Bot \") ? String($env.DISCORD_BOT_TOKEN || \"\") : \"Bot \" + String($env.DISCORD_BOT_TOKEN || \"\")}}"
+              "value": "{{ENV:DISCORD_BOT_TOKEN_AUTH_HEADER}}"
             },
             {
               "name": "Content-Type",

@@ -364,6 +364,7 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
   const workflow = JSON.parse(
     readFileSync("workflows/news-briefing/news-briefing.n8n.json", "utf8")
   );
+  assert.doesNotMatch(JSON.stringify(workflow), /\$env/);
   const prepareDiscord = workflow.nodes.find(
     (node: { name?: string }) => node.name === "Prepare Discord Message"
   );
@@ -393,7 +394,7 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
   assert.equal(sendDiscord.type, "n8n-nodes-base.httpRequest");
   assert.equal(
     sendDiscord.parameters.url,
-    "={{\"https://discord.com/api/v10/channels/\" + $env.NEWS_BRIEFING_DISCORD_CHANNEL_ID + \"/messages\"}}"
+    "https://discord.com/api/v10/channels/{{ENV:NEWS_BRIEFING_DISCORD_CHANNEL_ID}}/messages"
   );
   assert.equal(sendDiscord.parameters.contentType, "json");
   assert.equal(sendDiscord.parameters.specifyBody, "json");
@@ -419,7 +420,7 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
     ),
     {
       name: "Authorization",
-      value: "={{String($env.DISCORD_BOT_TOKEN || \"\").startsWith(\"Bot \") ? String($env.DISCORD_BOT_TOKEN || \"\") : \"Bot \" + String($env.DISCORD_BOT_TOKEN || \"\")}}"
+      value: "{{ENV:DISCORD_BOT_TOKEN_AUTH_HEADER}}"
     }
   );
   assert.equal(
@@ -519,6 +520,7 @@ test("schedule briefing workflow declares automation and Discord delivery", () =
   const workflow = JSON.parse(
     readFileSync("workflows/schedule-briefing/schedule-briefing.n8n.json", "utf8")
   );
+  assert.doesNotMatch(JSON.stringify(workflow), /\$env/);
   const schedule = workflow.nodes.find(
     (node: { name?: string }) => node.name === "Daily Schedule"
   );
@@ -545,8 +547,8 @@ test("schedule briefing workflow declares automation and Discord delivery", () =
   assert.doesNotMatch(prepareRequests.parameters.jsCode, /\$env/);
   assert.equal(
     requestBriefing.parameters.url,
-    "={{$env.HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL}}"
+    "{{ENV:HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL}}"
   );
-  assert.equal(sendDiscord.parameters.url, "={{\"https://discord.com/api/v10/channels/\" + $env.SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID + \"/messages\"}}");
+  assert.equal(sendDiscord.parameters.url, "https://discord.com/api/v10/channels/{{ENV:SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID}}/messages");
   assert.equal(workflow.settings.timezone, "Asia/Seoul");
 });

@@ -139,11 +139,11 @@ JSON export를 n8n 인스턴스에 반영하려면 `N8N_API_URL`과 `N8N_API_KEY
 pnpm n8n:sync
 ```
 
-동기화 스크립트는 workflow name을 기준으로 기존 workflow를 찾아 `PUT`으로 업데이트하고, 없으면 `POST`로 생성한다.
+동기화 스크립트는 workflow name을 기준으로 기존 workflow를 찾아 `PUT`으로 업데이트하고, 없으면 `POST`로 생성한다. Git에 저장된 workflow JSON의 `{{ENV:NAME}}` placeholder는 `pnpm n8n:sync` 실행 시 `.env` 값으로 치환되어 n8n에 전송된다. n8n 실행 중에는 `$env`를 참조하지 않는다.
 
-뉴스 브리핑의 `Send Discord` 노드는 n8n Discord credential을 사용하지 않는다. n8n 컨테이너 env의 `DISCORD_BOT_TOKEN`과 `NEWS_BRIEFING_DISCORD_CHANNEL_ID`를 사용해 Discord REST API를 직접 호출한다. `Prepare Discord Message` 노드는 빈 메시지를 걸러내고 Discord 2000자 제한을 재확인하며, `Send Discord`는 raw JSON body로 `{ content, flags, allowed_mentions }`를 전송한다. `flags=4`는 링크 embed preview를 억제한다. 추가 메시지가 있으면 `Create Discord Thread`가 첫 메시지 아래 thread를 만들고 `Send Thread Message`가 나머지를 전송한다.
+뉴스 브리핑의 `Send Discord` 노드는 n8n Discord credential을 사용하지 않는다. `DISCORD_BOT_TOKEN`과 `NEWS_BRIEFING_DISCORD_CHANNEL_ID`는 sync 시점에 workflow payload로 주입되며 Discord REST API 호출에 사용된다. `Prepare Discord Message` 노드는 빈 메시지를 걸러내고 Discord 2000자 제한을 재확인하며, `Send Discord`는 raw JSON body로 `{ content, flags, allowed_mentions }`를 전송한다. `flags=4`는 링크 embed preview를 억제한다. 추가 메시지가 있으면 `Create Discord Thread`가 첫 메시지 아래 thread를 만들고 `Send Thread Message`가 나머지를 전송한다.
 
-일정 브리핑 workflow는 매일 10:00 Asia/Seoul에 `HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL`을 호출한다. 매월 1일에는 월간 일정 요청도 함께 생성한다. Discord 전송은 `SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID`와 `DISCORD_BOT_TOKEN`을 사용한다.
+일정 브리핑 workflow는 매일 10:00 Asia/Seoul에 `HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL`을 호출한다. 매월 1일에는 월간 일정 요청도 함께 생성한다. Discord 전송에 필요한 `SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID`와 `DISCORD_BOT_TOKEN`도 sync 시점에 workflow payload로 주입된다. 일정 전용 env가 없으면 sync 스크립트는 `HERMES_NEWS_BRIEFING_WEBHOOK_URL`의 `/webhooks/news-briefing` 경로를 `/webhooks/schedule-briefing`으로 바꾸고, `NEWS_BRIEFING_DISCORD_CHANNEL_ID`를 일정 채널 fallback으로 사용한다.
 
 ## 검증
 

@@ -29,7 +29,7 @@
 
 ## 환경변수
 
-실행 시 n8n workflow에서 참조하는 값:
+`pnpm n8n:sync` 실행 시 workflow payload에 주입되는 값:
 
 - `N8N_WEBHOOK_SECRET`
 - `DISCORD_BOT_TOKEN`
@@ -56,6 +56,8 @@ Git 저장 JSON export를 n8n API로 반영할 때 사용하는 값:
 ```bash
 pnpm n8n:sync
 ```
+
+Git에 저장된 JSON export는 `{{ENV:NAME}}` placeholder를 사용한다. 이 placeholder는 sync 시점에 `.env` 값으로 치환되므로 n8n 실행 중 `$env` 접근 권한이 필요하지 않다.
 
 ## 장애 대응
 

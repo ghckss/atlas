@@ -86,6 +86,8 @@ n8n Workflow 동기화:
 N8N_API_URL=http://localhost:5678 N8N_API_KEY=... pnpm n8n:sync
 ```
 
+Workflow JSON의 `{{ENV:NAME}}` 값은 `pnpm n8n:sync` 실행 시 `.env`에서 읽어 n8n payload에 주입한다. n8n 실행 중 `$env` 접근은 사용하지 않는다.
+
 Discord slash command 동기화:
 
 ```bash
