@@ -52,6 +52,7 @@ export type CodexCliCommandExecutor = (
 
 export interface CodexCliRuntimeLogEvent {
   timestamp: string;
+  provider: "codex-cli";
   event: "request_start" | "request_success" | "request_error";
   command: string;
   model?: string;
@@ -257,6 +258,7 @@ export class CodexCliSoulRuntime implements SoulRuntime {
     | "errorMessage"
   > {
     return {
+      provider: "codex-cli",
       command: this.command,
       model: this.model,
       profile: this.profile,

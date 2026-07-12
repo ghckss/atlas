@@ -71,9 +71,9 @@ MEM0_API_KEY=... pnpm dev
 
 ```env
 LLM_PROVIDER=openai
+LLM_LOG_FILE=logs/llm-runtime.log
 OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-5.6
-OPENAI_LOG_FILE=logs/openai-runtime.log
 ```
 
 `LLM_PROVIDER=template`는 로컬 wiring 검증용 응답기를 사용한다. Discord에서 실제 모델 답변을 받으려면 `openai` 또는 `codex-cli`로 변경한 뒤 runtime을 재시작한다.

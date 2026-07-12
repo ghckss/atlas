@@ -13,8 +13,6 @@
     "n8n:sync": "node --env-file-if-exists=.env scripts/sync-n8n-workflows.mjs",
     "logs": "node --env-file-if-exists=.env scripts/tail-llm-log.mjs",
     "logs:llm": "node --env-file-if-exists=.env scripts/tail-llm-log.mjs",
-    "logs:codex": "node --env-file-if-exists=.env scripts/tail-llm-log.mjs --provider=codex-cli",
-    "logs:openai": "node --env-file-if-exists=.env scripts/tail-llm-log.mjs --provider=openai",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "pnpm typecheck",
     "test": "pnpm build && node --test dist/tests/*.test.js",

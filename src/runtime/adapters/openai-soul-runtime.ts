@@ -14,6 +14,7 @@ export interface OpenAISoulRuntimeOptions {
 
 export interface OpenAIRuntimeLogEvent {
   timestamp: string;
+  provider: "openai";
   event: "request_start" | "request_success" | "request_error";
   model: string;
   baseUrl: string;
@@ -189,8 +190,9 @@ export class OpenAISoulRuntime implements SoulRuntime {
 
   private baseLogFields(
     input: SoulRuntimeInput
-  ): Pick<OpenAIRuntimeLogEvent, "model" | "baseUrl" | "soul"> {
+  ): Pick<OpenAIRuntimeLogEvent, "provider" | "model" | "baseUrl" | "soul"> {
     return {
+      provider: "openai",
       model: this.model,
       baseUrl: this.baseUrl,
       soul: input.soul

@@ -128,7 +128,7 @@ export function formatDiscordGatewayErrorReply(error: unknown): string {
   }
 
   if (message.includes("Codex CLI request failed")) {
-    return "현재 Codex CLI 호출 중 오류가 발생했습니다. 서버 로그와 `pnpm logs:codex` 출력을 확인해주세요.";
+    return "현재 Codex CLI 호출 중 오류가 발생했습니다. 서버 로그와 `pnpm logs` 출력을 확인해주세요.";
   }
 
   return "요청을 처리하는 중 오류가 발생했습니다. 서버 로그를 확인해주세요.";

@@ -11,17 +11,16 @@
 - `DISCORD_DEDICATED_CHANNEL_ID`
 - `DISCORD_OWNER_USER_IDS`
 - `LLM_PROVIDER`
+- `LLM_LOG_FILE`
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
 - `OPENAI_BASE_URL`
-- `OPENAI_LOG_FILE`
 - `CODEX_CLI_COMMAND`
 - `CODEX_CLI_MODEL`
 - `CODEX_CLI_PROFILE`
 - `CODEX_CLI_SANDBOX`
 - `CODEX_CLI_APPROVAL_POLICY`
 - `CODEX_CLI_WORKDIR`
-- `CODEX_CLI_LOG_FILE`
 - `CODEX_CLI_OSS`
 - `CODEX_CLI_LOCAL_PROVIDER`
 - `LLM_REQUEST_TIMEOUT_MS`
@@ -62,16 +61,16 @@ OpenAI API를 직접 호출하려면 다음 값을 설정한다.
 
 ```env
 LLM_PROVIDER=openai
+LLM_LOG_FILE=logs/llm-runtime.log
 OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-5.6
 OPENAI_BASE_URL=https://api.openai.com
-OPENAI_LOG_FILE=logs/openai-runtime.log
 LLM_REQUEST_TIMEOUT_MS=30000
 ```
 
 OpenAI provider는 Responses API를 호출한다.
 
-OpenAI runtime 로그는 `OPENAI_LOG_FILE`에 JSON Lines 형식으로 저장한다. 프롬프트 본문과 API key는 저장하지 않고, `soul`, `model`, 요청/응답 크기, 상태 코드, request id, duration, 오류 메시지 같은 운영 진단 정보만 남긴다.
+LLM runtime 로그는 provider와 무관하게 `LLM_LOG_FILE` 하나에 JSON Lines 형식으로 저장한다. 각 이벤트에는 `provider` 필드가 포함되므로 `openai`와 `codex-cli` 실행을 같은 파일에서 구분할 수 있다. 프롬프트 본문과 API key는 저장하지 않고, `soul`, `model`, 요청/응답 크기, 상태 코드, request id, duration, 오류 메시지 같은 운영 진단 정보만 남긴다.
 
 최근 LLM 로그를 확인하면서 실시간으로 따라가려면 provider와 무관하게 다음 명령을 사용한다.
 
@@ -85,19 +84,19 @@ pnpm logs
 pnpm logs -- --latest
 ```
 
-`pnpm logs`는 `.env`의 `LLM_PROVIDER` 값을 보고 `OPENAI_LOG_FILE` 또는 `CODEX_CLI_LOG_FILE`을 자동으로 선택한다. 두 provider 로그를 한 번에 보고 싶으면 `pnpm logs -- --all`을 사용한다.
+`pnpm logs`는 `LLM_LOG_FILE` 하나를 따라간다. 어떤 provider로 실행됐는지는 각 JSONL 이벤트의 `provider` 값을 확인한다.
 
 OpenAI API key 대신 로컬 Codex CLI를 통해 답변을 생성하려면 먼저 터미널에서 `codex login` 또는 사용할 로컬 provider 설정을 완료한 뒤 다음 값을 설정한다.
 
 ```env
 LLM_PROVIDER=codex-cli
+LLM_LOG_FILE=logs/llm-runtime.log
 CODEX_CLI_COMMAND=codex
 CODEX_CLI_MODEL=
 CODEX_CLI_PROFILE=
 CODEX_CLI_SANDBOX=read-only
 CODEX_CLI_APPROVAL_POLICY=never
 CODEX_CLI_WORKDIR=/Users/hwanghochan/workspace/private/ai-assistant-platform
-CODEX_CLI_LOG_FILE=logs/codex-cli-runtime.log
 LLM_REQUEST_TIMEOUT_MS=120000
 ```
 
@@ -110,7 +109,7 @@ CODEX_CLI_OSS=true
 CODEX_CLI_LOCAL_PROVIDER=ollama
 ```
 
-Codex CLI runtime 로그도 JSON Lines 형식이며 프롬프트 본문은 저장하지 않는다. 로그 확인 커맨드는 OpenAI와 동일하게 `pnpm logs`를 사용한다.
+Codex CLI runtime 로그도 같은 `LLM_LOG_FILE`에 기록된다. 로그 확인 커맨드는 OpenAI와 동일하게 `pnpm logs`를 사용한다.
 
 ## n8n Workflow 운영
 

@@ -64,7 +64,7 @@ function createSoulRuntime(config: RuntimeConfig) {
       apiKey: config.llm.openaiApiKey ?? "",
       baseUrl: config.llm.openaiBaseUrl,
       model: config.llm.openaiModel,
-      logFilePath: config.llm.openaiLogFilePath,
+      logFilePath: config.llm.logFilePath,
       timeoutMs: config.llm.requestTimeoutMs
     });
   }
@@ -77,7 +77,7 @@ function createSoulRuntime(config: RuntimeConfig) {
       sandbox: config.llm.codexCliSandbox,
       approvalPolicy: config.llm.codexCliApprovalPolicy,
       workingDirectory: config.llm.codexCliWorkdir,
-      logFilePath: config.llm.codexCliLogFilePath,
+      logFilePath: config.llm.logFilePath,
       timeoutMs: config.llm.requestTimeoutMs,
       useOss: config.llm.codexCliUseOss,
       localProvider: config.llm.codexCliLocalProvider

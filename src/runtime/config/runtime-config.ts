@@ -7,17 +7,16 @@ export interface RuntimeConfig {
   databaseUrl: string;
   llm: {
     provider: "template" | "openai" | "codex-cli";
+    logFilePath?: string;
     openaiApiKey?: string;
     openaiBaseUrl: string;
     openaiModel: string;
-    openaiLogFilePath?: string;
     codexCliCommand: string;
     codexCliModel?: string;
     codexCliProfile?: string;
     codexCliSandbox: "read-only" | "workspace-write" | "danger-full-access";
     codexCliApprovalPolicy: "untrusted" | "on-request" | "never";
     codexCliWorkdir?: string;
-    codexCliLogFilePath?: string;
     codexCliUseOss: boolean;
     codexCliLocalProvider?: string;
     requestTimeoutMs: number;
@@ -71,13 +70,10 @@ export function loadRuntimeConfig(
       env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/hermes",
     llm: {
       provider: parseLlmProvider(env.LLM_PROVIDER),
+      logFilePath: parseOptionalPath(env.LLM_LOG_FILE, "logs/llm-runtime.log"),
       openaiApiKey: env.OPENAI_API_KEY,
       openaiBaseUrl: env.OPENAI_BASE_URL ?? "https://api.openai.com",
       openaiModel: env.OPENAI_MODEL ?? "gpt-5.6",
-      openaiLogFilePath: parseOptionalPath(
-        env.OPENAI_LOG_FILE,
-        "logs/openai-runtime.log"
-      ),
       codexCliCommand: env.CODEX_CLI_COMMAND?.trim() || "codex",
       codexCliModel: parseOptionalText(env.CODEX_CLI_MODEL),
       codexCliProfile: parseOptionalText(env.CODEX_CLI_PROFILE),
@@ -86,10 +82,6 @@ export function loadRuntimeConfig(
         env.CODEX_CLI_APPROVAL_POLICY
       ),
       codexCliWorkdir: parseOptionalText(env.CODEX_CLI_WORKDIR),
-      codexCliLogFilePath: parseOptionalPath(
-        env.CODEX_CLI_LOG_FILE,
-        "logs/codex-cli-runtime.log"
-      ),
       codexCliUseOss: parseBoolean(env.CODEX_CLI_OSS),
       codexCliLocalProvider: parseOptionalText(env.CODEX_CLI_LOCAL_PROVIDER),
       requestTimeoutMs: parsePositiveInteger(

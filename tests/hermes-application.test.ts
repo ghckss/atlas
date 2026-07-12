@@ -168,6 +168,7 @@ test("OpenAISoulRuntime writes redacted JSONL execution logs", async (t) => {
   const events = content.trim().split("\n").map((line) => JSON.parse(line));
 
   assert.equal(events[0].event, "request_start");
+  assert.equal(events[0].provider, "openai");
   assert.equal(events[0].model, "gpt-5.6");
   assert.equal(events[0].soul, "default");
   assert.equal(typeof events[0].requestBytes, "number");
@@ -218,6 +219,7 @@ test("OpenAISoulRuntime logs provider failures with status", async (t) => {
   const events = content.trim().split("\n").map((line) => JSON.parse(line));
 
   assert.equal(events[1].event, "request_error");
+  assert.equal(events[1].provider, "openai");
   assert.equal(events[1].status, 429);
   assert.equal(events[1].requestId, "req_quota");
   assert.match(events[1].errorMessage, /current quota/);
@@ -288,6 +290,7 @@ test("CodexCliSoulRuntime executes codex exec and reads final output", async (t)
   const events = content.trim().split("\n").map((line) => JSON.parse(line));
 
   assert.equal(events[0].event, "request_start");
+  assert.equal(events[0].provider, "codex-cli");
   assert.equal(events[0].command, "codex-test");
   assert.equal(events[0].model, "gpt-5.6-codex");
   assert.equal(events[1].event, "request_success");
@@ -324,6 +327,7 @@ test("CodexCliSoulRuntime logs execution failures", async (t) => {
   const events = content.trim().split("\n").map((line) => JSON.parse(line));
 
   assert.equal(events[1].event, "request_error");
+  assert.equal(events[1].provider, "codex-cli");
   assert.equal(events[1].exitCode, 1);
   assert.match(events[1].errorMessage, /not logged in/);
 });
