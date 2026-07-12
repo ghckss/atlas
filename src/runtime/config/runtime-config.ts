@@ -6,11 +6,20 @@ export interface RuntimeConfig {
   port: number;
   databaseUrl: string;
   llm: {
-    provider: "template" | "openai";
+    provider: "template" | "openai" | "codex-cli";
     openaiApiKey?: string;
     openaiBaseUrl: string;
     openaiModel: string;
     openaiLogFilePath?: string;
+    codexCliCommand: string;
+    codexCliModel?: string;
+    codexCliProfile?: string;
+    codexCliSandbox: "read-only" | "workspace-write" | "danger-full-access";
+    codexCliApprovalPolicy: "untrusted" | "on-request" | "never";
+    codexCliWorkdir?: string;
+    codexCliLogFilePath?: string;
+    codexCliUseOss: boolean;
+    codexCliLocalProvider?: string;
     requestTimeoutMs: number;
   };
   discord: {
@@ -69,6 +78,20 @@ export function loadRuntimeConfig(
         env.OPENAI_LOG_FILE,
         "logs/openai-runtime.log"
       ),
+      codexCliCommand: env.CODEX_CLI_COMMAND?.trim() || "codex",
+      codexCliModel: parseOptionalText(env.CODEX_CLI_MODEL),
+      codexCliProfile: parseOptionalText(env.CODEX_CLI_PROFILE),
+      codexCliSandbox: parseCodexCliSandbox(env.CODEX_CLI_SANDBOX),
+      codexCliApprovalPolicy: parseCodexCliApprovalPolicy(
+        env.CODEX_CLI_APPROVAL_POLICY
+      ),
+      codexCliWorkdir: parseOptionalText(env.CODEX_CLI_WORKDIR),
+      codexCliLogFilePath: parseOptionalPath(
+        env.CODEX_CLI_LOG_FILE,
+        "logs/codex-cli-runtime.log"
+      ),
+      codexCliUseOss: parseBoolean(env.CODEX_CLI_OSS),
+      codexCliLocalProvider: parseOptionalText(env.CODEX_CLI_LOCAL_PROVIDER),
       requestTimeoutMs: parsePositiveInteger(
         env.LLM_REQUEST_TIMEOUT_MS ?? "30000",
         "LLM_REQUEST_TIMEOUT_MS"
@@ -166,6 +189,52 @@ function parseOptionalPath(
   return trimmed || undefined;
 }
 
+function parseCodexCliSandbox(
+  value: string | undefined
+): RuntimeConfig["llm"]["codexCliSandbox"] {
+  if (!value) {
+    return "read-only";
+  }
+
+  if (
+    value === "read-only" ||
+    value === "workspace-write" ||
+    value === "danger-full-access"
+  ) {
+    return value;
+  }
+
+  throw new Error(
+    "CODEX_CLI_SANDBOX must be read-only, workspace-write, or danger-full-access."
+  );
+}
+
+function parseCodexCliApprovalPolicy(
+  value: string | undefined
+): RuntimeConfig["llm"]["codexCliApprovalPolicy"] {
+  if (!value) {
+    return "never";
+  }
+
+  if (value === "untrusted" || value === "on-request" || value === "never") {
+    return value;
+  }
+
+  throw new Error(
+    "CODEX_CLI_APPROVAL_POLICY must be untrusted, on-request, or never."
+  );
+}
+
+function parseBoolean(value: string | undefined): boolean {
+  return value === "true";
+}
+
+function parseOptionalText(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+
+  return trimmed || undefined;
+}
+
 function parseLlmProvider(value: string | undefined): RuntimeConfig["llm"]["provider"] {
   if (!value || value === "template") {
     return "template";
@@ -175,7 +244,11 @@ function parseLlmProvider(value: string | undefined): RuntimeConfig["llm"]["prov
     return "openai";
   }
 
-  throw new Error("LLM_PROVIDER must be either template or openai.");
+  if (value === "codex-cli" || value === "codex") {
+    return "codex-cli";
+  }
+
+  throw new Error("LLM_PROVIDER must be template, openai, or codex-cli.");
 }
 
 function parseCsv(value: string | undefined): readonly string[] {

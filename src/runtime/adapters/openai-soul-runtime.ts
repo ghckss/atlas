@@ -1,7 +1,7 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { SoulRuntime, SoulRuntimeInput } from "../../application";
-import { soulProfiles } from "../../domain";
+import { buildSoulInstructions, buildSoulUserInput } from "./soul-runtime-prompts";
 
 export interface OpenAISoulRuntimeOptions {
   apiKey: string;
@@ -96,8 +96,8 @@ export class OpenAISoulRuntime implements SoulRuntime {
   async execute(input: SoulRuntimeInput): Promise<string> {
     const body = {
       model: this.model,
-      instructions: buildInstructions(input),
-      input: buildUserInput(input)
+      instructions: buildSoulInstructions(input),
+      input: buildSoulUserInput(input)
     };
     const bodyText = JSON.stringify(body);
     const startedAt = Date.now();
@@ -215,35 +215,6 @@ export class OpenAISoulRuntime implements SoulRuntime {
       // Logging must never block a user-facing response path.
     }
   }
-}
-
-function buildInstructions(input: SoulRuntimeInput): string {
-  const profile = soulProfiles[input.soul];
-
-  return [
-    "You are Hermes, an AI assistant platform for personal and small-team development workflows.",
-    "Answer in Korean unless the user explicitly asks for another language.",
-    "Do not mention internal pipeline mechanics unless they are directly relevant.",
-    "",
-    `[Soul Identity] ${profile.identity}`,
-    `[Purpose] ${profile.purpose}`,
-    `[Responsibilities] ${profile.responsibilities.join(", ")}`,
-    `[Decision Principles] ${profile.decisionPrinciples.join(", ")}`,
-    `[Response Style] ${profile.responseStyle}`,
-    `[Things To Avoid] ${profile.thingsToAvoid.join(", ")}`
-  ].join("\n");
-}
-
-function buildUserInput(input: SoulRuntimeInput): string {
-  return [
-    `[User Request]\n${input.request}`,
-    input.previousOutput ? `[Previous Soul Output]\n${input.previousOutput}` : undefined,
-    input.memoryContext.trim()
-      ? `[Memory And Session Context]\n${input.memoryContext}`
-      : undefined
-  ]
-    .filter(Boolean)
-    .join("\n\n");
 }
 
 function parseResponsePayload(responseText: string): OpenAIResponsePayload {

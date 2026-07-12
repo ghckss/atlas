@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   HermesChatService,
   MemoryContextService,
+  CodexCliSoulRuntime,
   OpenAISoulRuntime,
   SoulPipeline,
   TaskPlanner
@@ -220,6 +221,111 @@ test("OpenAISoulRuntime logs provider failures with status", async (t) => {
   assert.equal(events[1].status, 429);
   assert.equal(events[1].requestId, "req_quota");
   assert.match(events[1].errorMessage, /current quota/);
+});
+
+test("CodexCliSoulRuntime executes codex exec and reads final output", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "hermes-codex-log-"));
+  const logFilePath = join(directory, "codex-cli-runtime.log");
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const calls: Array<{
+    command: string;
+    args: readonly string[];
+    prompt: string;
+    workingDirectory?: string;
+  }> = [];
+  const runtime = new CodexCliSoulRuntime({
+    command: "codex-test",
+    model: "gpt-5.6-codex",
+    sandbox: "read-only",
+    approvalPolicy: "never",
+    workingDirectory: "/tmp/hermes-project",
+    logFilePath,
+    commandExecutor: async (input) => {
+      calls.push({
+        command: input.command,
+        args: input.args,
+        prompt: input.prompt,
+        workingDirectory: input.workingDirectory
+      });
+      await writeFile(input.outputFilePath, "Codex CLI 응답\n", "utf8");
+
+      return {
+        exitCode: 0,
+        stdout: "progress",
+        stderr: ""
+      };
+    }
+  });
+
+  assert.equal(
+    await runtime.execute({
+      soul: "default",
+      request: "안녕",
+      memoryContext: "[Session History]\nuser: 안녕"
+    }),
+    "Codex CLI 응답"
+  );
+  assert.equal(calls[0].command, "codex-test");
+  assert.equal(calls[0].args[0], "exec");
+  assert.equal(calls[0].args.at(-1), "-");
+  assert.equal(
+    calls[0].args[calls[0].args.indexOf("--model") + 1],
+    "gpt-5.6-codex"
+  );
+  assert.equal(
+    calls[0].args[calls[0].args.indexOf("--sandbox") + 1],
+    "read-only"
+  );
+  assert.equal(
+    calls[0].args[calls[0].args.indexOf("--ask-for-approval") + 1],
+    "never"
+  );
+  assert.equal(calls[0].workingDirectory, "/tmp/hermes-project");
+  assert.match(calls[0].prompt, /Answer in Korean/);
+  assert.match(calls[0].prompt, /Do not modify files/);
+
+  const content = await readFile(logFilePath, "utf8");
+  const events = content.trim().split("\n").map((line) => JSON.parse(line));
+
+  assert.equal(events[0].event, "request_start");
+  assert.equal(events[0].command, "codex-test");
+  assert.equal(events[0].model, "gpt-5.6-codex");
+  assert.equal(events[1].event, "request_success");
+  assert.equal(events[1].exitCode, 0);
+  assert.equal(typeof events[1].durationMs, "number");
+  assert.doesNotMatch(content, /안녕/);
+});
+
+test("CodexCliSoulRuntime logs execution failures", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "hermes-codex-error-log-"));
+  const logFilePath = join(directory, "codex-cli-runtime.log");
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const runtime = new CodexCliSoulRuntime({
+    command: "codex-test",
+    logFilePath,
+    commandExecutor: async () => ({
+      exitCode: 1,
+      stdout: "",
+      stderr: "not logged in"
+    })
+  });
+
+  await assert.rejects(
+    () =>
+      runtime.execute({
+        soul: "default",
+        request: "안녕",
+        memoryContext: ""
+      }),
+    /Codex CLI request failed with exit code 1/
+  );
+
+  const content = await readFile(logFilePath, "utf8");
+  const events = content.trim().split("\n").map((line) => JSON.parse(line));
+
+  assert.equal(events[1].event, "request_error");
+  assert.equal(events[1].exitCode, 1);
+  assert.match(events[1].errorMessage, /not logged in/);
 });
 
 test("HermesChatService records conversation and returns pipeline output", async () => {

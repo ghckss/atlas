@@ -14,6 +14,7 @@ import {
 import type { DiscordInterfaceConfig } from "../interfaces";
 import type { RuntimeConfig } from "./config/runtime-config";
 import {
+  CodexCliSoulRuntime,
   DeterministicEmbeddingProvider,
   InMemoryChatHistoryRepository,
   InMemoryMemoryRepository,
@@ -65,6 +66,21 @@ function createSoulRuntime(config: RuntimeConfig) {
       model: config.llm.openaiModel,
       logFilePath: config.llm.openaiLogFilePath,
       timeoutMs: config.llm.requestTimeoutMs
+    });
+  }
+
+  if (config.llm.provider === "codex-cli") {
+    return new CodexCliSoulRuntime({
+      command: config.llm.codexCliCommand,
+      model: config.llm.codexCliModel,
+      profile: config.llm.codexCliProfile,
+      sandbox: config.llm.codexCliSandbox,
+      approvalPolicy: config.llm.codexCliApprovalPolicy,
+      workingDirectory: config.llm.codexCliWorkdir,
+      logFilePath: config.llm.codexCliLogFilePath,
+      timeoutMs: config.llm.requestTimeoutMs,
+      useOss: config.llm.codexCliUseOss,
+      localProvider: config.llm.codexCliLocalProvider
     });
   }
 

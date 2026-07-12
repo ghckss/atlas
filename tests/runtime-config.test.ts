@@ -21,6 +21,15 @@ test("runtime config loads required local MVP settings", () => {
     OPENAI_MODEL: "gpt-5.6",
     OPENAI_BASE_URL: "https://openai.example",
     OPENAI_LOG_FILE: "logs/custom-openai.log",
+    CODEX_CLI_COMMAND: "codex-custom",
+    CODEX_CLI_MODEL: "gpt-5.6-codex",
+    CODEX_CLI_PROFILE: "work",
+    CODEX_CLI_SANDBOX: "workspace-write",
+    CODEX_CLI_APPROVAL_POLICY: "on-request",
+    CODEX_CLI_WORKDIR: "/tmp/hermes-project",
+    CODEX_CLI_LOG_FILE: "logs/custom-codex.log",
+    CODEX_CLI_OSS: "true",
+    CODEX_CLI_LOCAL_PROVIDER: "ollama",
     LLM_REQUEST_TIMEOUT_MS: "20000",
     NEWS_GOOGLE_LANGUAGE: "ko",
     NEWS_GOOGLE_COUNTRY: "KR",
@@ -46,6 +55,15 @@ test("runtime config loads required local MVP settings", () => {
   assert.equal(config.llm.openaiModel, "gpt-5.6");
   assert.equal(config.llm.openaiBaseUrl, "https://openai.example");
   assert.equal(config.llm.openaiLogFilePath, "logs/custom-openai.log");
+  assert.equal(config.llm.codexCliCommand, "codex-custom");
+  assert.equal(config.llm.codexCliModel, "gpt-5.6-codex");
+  assert.equal(config.llm.codexCliProfile, "work");
+  assert.equal(config.llm.codexCliSandbox, "workspace-write");
+  assert.equal(config.llm.codexCliApprovalPolicy, "on-request");
+  assert.equal(config.llm.codexCliWorkdir, "/tmp/hermes-project");
+  assert.equal(config.llm.codexCliLogFilePath, "logs/custom-codex.log");
+  assert.equal(config.llm.codexCliUseOss, true);
+  assert.equal(config.llm.codexCliLocalProvider, "ollama");
   assert.equal(config.llm.requestTimeoutMs, 20000);
   assert.deepEqual(config.news.sourceUrls, [
     "https://news-a.example",
@@ -77,6 +95,22 @@ test("runtime config defaults news collection to Google News top stories", () =>
   assert.equal(config.llm.provider, "template");
   assert.equal(config.llm.openaiModel, "gpt-5.6");
   assert.equal(config.llm.openaiLogFilePath, "logs/openai-runtime.log");
+  assert.equal(config.llm.codexCliCommand, "codex");
+  assert.equal(config.llm.codexCliSandbox, "read-only");
+  assert.equal(config.llm.codexCliApprovalPolicy, "never");
+  assert.equal(config.llm.codexCliLogFilePath, "logs/codex-cli-runtime.log");
+  assert.equal(config.llm.codexCliUseOss, false);
+});
+
+test("runtime config supports Codex CLI as an LLM provider", () => {
+  const config = loadRuntimeConfig({
+    DISCORD_BOT_USER_ID: "bot-1",
+    DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
+    N8N_WEBHOOK_SECRET: "secret",
+    LLM_PROVIDER: "codex"
+  });
+
+  assert.equal(config.llm.provider, "codex-cli");
 });
 
 test("runtime config can enable Discord Gateway with a token", () => {
@@ -120,6 +154,26 @@ test("runtime config rejects invalid port and missing secrets", () => {
         LLM_PROVIDER: "unknown"
       }),
     /LLM_PROVIDER/
+  );
+  assert.throws(
+    () =>
+      loadRuntimeConfig({
+        DISCORD_BOT_USER_ID: "bot-1",
+        DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
+        N8N_WEBHOOK_SECRET: "secret",
+        CODEX_CLI_SANDBOX: "bad"
+      }),
+    /CODEX_CLI_SANDBOX/
+  );
+  assert.throws(
+    () =>
+      loadRuntimeConfig({
+        DISCORD_BOT_USER_ID: "bot-1",
+        DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
+        N8N_WEBHOOK_SECRET: "secret",
+        CODEX_CLI_APPROVAL_POLICY: "bad"
+      }),
+    /CODEX_CLI_APPROVAL_POLICY/
   );
 });
 

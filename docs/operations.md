@@ -15,6 +15,15 @@
 - `OPENAI_MODEL`
 - `OPENAI_BASE_URL`
 - `OPENAI_LOG_FILE`
+- `CODEX_CLI_COMMAND`
+- `CODEX_CLI_MODEL`
+- `CODEX_CLI_PROFILE`
+- `CODEX_CLI_SANDBOX`
+- `CODEX_CLI_APPROVAL_POLICY`
+- `CODEX_CLI_WORKDIR`
+- `CODEX_CLI_LOG_FILE`
+- `CODEX_CLI_OSS`
+- `CODEX_CLI_LOCAL_PROVIDER`
 - `LLM_REQUEST_TIMEOUT_MS`
 - `EMBEDDING_PROVIDER`
 - `EMBEDDING_MODEL`
@@ -47,7 +56,9 @@
 
 ## LLM Provider 운영
 
-기본 runtime은 `LLM_PROVIDER=template`로 동작하며, 이는 로컬 wiring과 workflow 검증용 응답기이다. 실제 운영 답변을 받으려면 다음 값을 설정한다.
+기본 runtime은 `LLM_PROVIDER=template`로 동작하며, 이는 로컬 wiring과 workflow 검증용 응답기이다. 실제 운영 답변은 OpenAI API 또는 로컬 Codex CLI 중 하나를 선택해서 받는다. provider 변경 후에는 Hermes runtime을 재시작해야 한다.
+
+OpenAI API를 직접 호출하려면 다음 값을 설정한다.
 
 ```env
 LLM_PROVIDER=openai
@@ -58,7 +69,7 @@ OPENAI_LOG_FILE=logs/openai-runtime.log
 LLM_REQUEST_TIMEOUT_MS=30000
 ```
 
-OpenAI provider는 Responses API를 호출한다. provider 변경 후에는 Hermes runtime을 재시작해야 한다.
+OpenAI provider는 Responses API를 호출한다.
 
 OpenAI runtime 로그는 `OPENAI_LOG_FILE`에 JSON Lines 형식으로 저장한다. 프롬프트 본문과 API key는 저장하지 않고, `soul`, `model`, 요청/응답 크기, 상태 코드, request id, duration, 오류 메시지 같은 운영 진단 정보만 남긴다.
 
@@ -72,6 +83,36 @@ pnpm logs:openai
 
 ```bash
 pnpm logs:openai -- --latest
+```
+
+OpenAI API key 대신 로컬 Codex CLI를 통해 답변을 생성하려면 먼저 터미널에서 `codex login` 또는 사용할 로컬 provider 설정을 완료한 뒤 다음 값을 설정한다.
+
+```env
+LLM_PROVIDER=codex-cli
+CODEX_CLI_COMMAND=codex
+CODEX_CLI_MODEL=
+CODEX_CLI_PROFILE=
+CODEX_CLI_SANDBOX=read-only
+CODEX_CLI_APPROVAL_POLICY=never
+CODEX_CLI_WORKDIR=/Users/hwanghochan/workspace/private/ai-assistant-platform
+CODEX_CLI_LOG_FILE=logs/codex-cli-runtime.log
+LLM_REQUEST_TIMEOUT_MS=120000
+```
+
+Codex CLI provider는 `codex exec`를 stdin 기반으로 실행하고 최종 메시지만 Discord 응답으로 사용한다. 기본값은 `read-only` sandbox와 `never` approval이므로 답변 생성 중 파일을 수정하지 않는다. 저장소 파일 분석까지 CLI에 맡기고 싶을 때만 `CODEX_CLI_WORKDIR`를 프로젝트 경로로 지정한다.
+
+Ollama 또는 LM Studio 같은 Codex CLI의 OSS/local provider를 쓰려면 다음 값을 추가한다.
+
+```env
+CODEX_CLI_OSS=true
+CODEX_CLI_LOCAL_PROVIDER=ollama
+```
+
+Codex CLI runtime 로그도 JSON Lines 형식이며 프롬프트 본문은 저장하지 않는다.
+
+```bash
+pnpm logs:codex
+pnpm logs:codex -- --latest
 ```
 
 ## n8n Workflow 운영

@@ -123,6 +123,14 @@ export function formatDiscordGatewayErrorReply(error: unknown): string {
     return "현재 LLM 제공자 호출 중 오류가 발생했습니다. 서버 로그의 OpenAI 오류 내용을 확인해주세요.";
   }
 
+  if (message.includes("Codex CLI request timed out")) {
+    return "Codex CLI 응답 시간이 초과되었습니다. `LLM_REQUEST_TIMEOUT_MS`를 늘리거나 Codex CLI 상태를 확인해주세요.";
+  }
+
+  if (message.includes("Codex CLI request failed")) {
+    return "현재 Codex CLI 호출 중 오류가 발생했습니다. 서버 로그와 `pnpm logs:codex` 출력을 확인해주세요.";
+  }
+
   return "요청을 처리하는 중 오류가 발생했습니다. 서버 로그를 확인해주세요.";
 }
 
