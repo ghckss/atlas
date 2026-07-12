@@ -142,7 +142,7 @@ test("OpenAISoulRuntime calls Responses API for Soul execution", async () => {
 
 test("OpenAISoulRuntime writes redacted JSONL execution logs", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "hermes-openai-log-"));
-  const logFilePath = join(directory, "openai-runtime.log");
+  const logFilePath = join(directory, "llm-runtime.log");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const runtime = new OpenAISoulRuntime({
     apiKey: "openai-key",
@@ -182,7 +182,7 @@ test("OpenAISoulRuntime writes redacted JSONL execution logs", async (t) => {
 
 test("OpenAISoulRuntime logs provider failures with status", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "hermes-openai-error-log-"));
-  const logFilePath = join(directory, "openai-runtime.log");
+  const logFilePath = join(directory, "llm-runtime.log");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const runtime = new OpenAISoulRuntime({
     apiKey: "openai-key",
@@ -227,7 +227,7 @@ test("OpenAISoulRuntime logs provider failures with status", async (t) => {
 
 test("CodexCliSoulRuntime executes codex exec and reads final output", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "hermes-codex-log-"));
-  const logFilePath = join(directory, "codex-cli-runtime.log");
+  const logFilePath = join(directory, "llm-runtime.log");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const calls: Array<{
     command: string;
@@ -301,7 +301,7 @@ test("CodexCliSoulRuntime executes codex exec and reads final output", async (t)
 
 test("CodexCliSoulRuntime logs execution failures", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "hermes-codex-error-log-"));
-  const logFilePath = join(directory, "codex-cli-runtime.log");
+  const logFilePath = join(directory, "llm-runtime.log");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const runtime = new CodexCliSoulRuntime({
     command: "codex-test",
