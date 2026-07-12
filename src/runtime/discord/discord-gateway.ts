@@ -1,11 +1,18 @@
 import {
+  ActionRowBuilder,
   Client,
   Events,
   GatewayIntentBits,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   type ChatInputCommandInteraction,
   type Interaction,
+  type ModalActionRowComponentBuilder,
+  type ModalSubmitInteraction,
   type Message
 } from "discord.js";
+import { formatLocalDateTime } from "../../application";
 import type { Role } from "../../domain";
 import { handleSlashCommand } from "../../interfaces";
 import type { RuntimeConfig } from "../config/runtime-config";
@@ -58,7 +65,7 @@ export function createDiscordGatewayClient(
 
   client.on(Events.InteractionCreate, async (interaction) => {
     try {
-      await handleGatewayInteraction(interaction, config);
+      await handleGatewayInteraction(interaction, runtime, config);
     } catch (error) {
       logger.error("Discord interaction handling failed.", error);
     }
@@ -226,9 +233,20 @@ function extractRawMentionedUserIds(content: string): readonly string[] {
 
 async function handleGatewayInteraction(
   interaction: Interaction,
+  runtime: LocalRuntime,
   config: RuntimeConfig
 ): Promise<void> {
+  if (interaction.isModalSubmit()) {
+    await handleGatewayModalSubmit(interaction, runtime, config);
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) {
+    return;
+  }
+
+  if (interaction.commandName === "일정") {
+    await showScheduleModal(interaction, config);
     return;
   }
 
@@ -242,6 +260,119 @@ async function handleGatewayInteraction(
   });
 
   await replyEphemeral(interaction, response.content, response.ephemeral);
+}
+
+async function showScheduleModal(
+  interaction: ChatInputCommandInteraction,
+  config: RuntimeConfig
+): Promise<void> {
+  const modal = new ModalBuilder()
+    .setCustomId("schedule:add")
+    .setTitle("일정 추가");
+  const today = todayInTimezone(config.schedule.timezone);
+  const titleInput = new TextInputBuilder()
+    .setCustomId("title")
+    .setLabel("일정")
+    .setPlaceholder("예: 병원 예약")
+    .setRequired(true)
+    .setMaxLength(100)
+    .setStyle(TextInputStyle.Short);
+  const dateInput = new TextInputBuilder()
+    .setCustomId("date")
+    .setLabel("날짜")
+    .setPlaceholder("YYYY-MM-DD")
+    .setValue(today)
+    .setRequired(true)
+    .setMaxLength(10)
+    .setStyle(TextInputStyle.Short);
+  const timeInput = new TextInputBuilder()
+    .setCustomId("time")
+    .setLabel("시간")
+    .setPlaceholder("HH:mm")
+    .setRequired(true)
+    .setMaxLength(5)
+    .setStyle(TextInputStyle.Short);
+  const notesInput = new TextInputBuilder()
+    .setCustomId("notes")
+    .setLabel("메모")
+    .setPlaceholder("선택 입력")
+    .setRequired(false)
+    .setMaxLength(300)
+    .setStyle(TextInputStyle.Paragraph);
+
+  modal.addComponents(
+    modalRow(titleInput),
+    modalRow(dateInput),
+    modalRow(timeInput),
+    modalRow(notesInput)
+  );
+
+  await interaction.showModal(modal);
+}
+
+async function handleGatewayModalSubmit(
+  interaction: ModalSubmitInteraction,
+  runtime: LocalRuntime,
+  config: RuntimeConfig
+): Promise<void> {
+  if (interaction.customId !== "schedule:add") {
+    return;
+  }
+
+  try {
+    const channelId = interaction.channelId;
+
+    if (!channelId) {
+      throw new Error("일정을 저장할 Discord 채널을 확인할 수 없습니다.");
+    }
+
+    const event = await runtime.schedule.addEvent({
+      ownerUserId: interaction.user.id,
+      discordGuildId: interaction.guildId ?? undefined,
+      discordChannelId: channelId,
+      title: interaction.fields.getTextInputValue("title"),
+      localDate: interaction.fields.getTextInputValue("date"),
+      localTime: interaction.fields.getTextInputValue("time"),
+      notes: readOptionalModalValue(interaction, "notes"),
+      timezone: config.schedule.timezone
+    });
+    const local = formatLocalDateTime(event.startsAt, event.timezone);
+
+    await interaction.reply({
+      ephemeral: true,
+      content: [
+        "일정을 추가했습니다.",
+        "",
+        `제목: ${event.title}`,
+        `시간: ${local.date} ${local.time} ${event.timezone}`,
+        event.notes ? `메모: ${event.notes}` : undefined
+      ]
+        .filter(Boolean)
+        .join("\n")
+    });
+  } catch (error) {
+    await interaction.reply({
+      ephemeral: true,
+      content: error instanceof Error ? error.message : "일정 저장에 실패했습니다."
+    });
+  }
+}
+
+function modalRow(
+  input: TextInputBuilder
+): ActionRowBuilder<ModalActionRowComponentBuilder> {
+  return new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(input);
+}
+
+function readOptionalModalValue(
+  interaction: ModalSubmitInteraction,
+  id: string
+): string | undefined {
+  try {
+    return interaction.fields.getTextInputValue(id).trim() || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function roleForInteraction(
@@ -268,4 +399,17 @@ async function replyEphemeral(
     content: truncateDiscordContent(content),
     ephemeral
   });
+}
+
+function todayInTimezone(timezone: string): string {
+  if (timezone !== "Asia/Seoul") {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(now.getUTCDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }

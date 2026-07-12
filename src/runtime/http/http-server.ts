@@ -1,7 +1,10 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { RuntimeConfig } from "../config/runtime-config";
 import type { LocalRuntime } from "../create-runtime";
-import { createNewsBriefingWebhookHandler } from "../../interfaces";
+import {
+  createNewsBriefingWebhookHandler,
+  createScheduleBriefingWebhookHandler
+} from "../../interfaces";
 import { handleRuntimeDiscordMessage } from "../discord";
 
 export interface RuntimeHttpRequest {
@@ -61,6 +64,22 @@ export async function handleRuntimeHttpRequest(
     const handler = createNewsBriefingWebhookHandler(
       runtime.newsBriefing,
       config.n8n.webhookSecret
+    );
+
+    return handler({
+      headers: request.headers,
+      body: request.body
+    });
+  }
+
+  if (request.method === "POST" && request.path === "/webhooks/schedule-briefing") {
+    const handler = createScheduleBriefingWebhookHandler(
+      runtime.schedule,
+      config.n8n.webhookSecret,
+      {
+        discordChannelId: config.schedule.briefingDiscordChannelId,
+        timezone: config.schedule.timezone
+      }
     );
 
     return handler({

@@ -33,6 +33,10 @@ export interface RuntimeConfig {
     apiUrl?: string;
     apiKey?: string;
   };
+  schedule: {
+    timezone: string;
+    briefingDiscordChannelId: string;
+  };
   mem0: {
     apiKey?: string;
     baseUrl?: string;
@@ -100,6 +104,15 @@ export function loadRuntimeConfig(
       webhookSecret: requireValue(env.N8N_WEBHOOK_SECRET, "N8N_WEBHOOK_SECRET"),
       apiUrl: env.N8N_API_URL,
       apiKey: env.N8N_API_KEY
+    },
+    schedule: {
+      timezone: env.SCHEDULE_TIMEZONE ?? "Asia/Seoul",
+      briefingDiscordChannelId:
+        env.SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID ??
+        requireValue(
+          env.DISCORD_DEDICATED_CHANNEL_ID,
+          "DISCORD_DEDICATED_CHANNEL_ID"
+        )
     },
     mem0: {
       apiKey: env.MEM0_API_KEY,

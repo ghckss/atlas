@@ -1,0 +1,199 @@
+{
+  "name": "Hermes Schedule Briefing",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 10,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "daily-schedule",
+      "name": "Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const shifted = new Date(Date.now() + 9 * 60 * 60 * 1000);\nconst year = shifted.getUTCFullYear();\nconst month = String(shifted.getUTCMonth() + 1).padStart(2, '0');\nconst day = String(shifted.getUTCDate()).padStart(2, '0');\nconst date = `${year}-${month}-${day}`;\nconst channelId = $env.SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID;\nconst requests = [\n  {\n    mode: 'daily',\n    date,\n    discordChannelId: channelId\n  }\n];\n\nif (day === '01') {\n  requests.push({\n    mode: 'monthly',\n    date,\n    discordChannelId: channelId\n  });\n}\n\nreturn requests.map((webhookBody) => ({\n  json: {\n    webhookBody\n  }\n}));"
+      },
+      "id": "prepare-schedule-requests",
+      "name": "Prepare Schedule Requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-n8n-webhook-secret",
+              "value": "={{$env.N8N_WEBHOOK_SECRET}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json.webhookBody)}}",
+        "responseFormat": "json"
+      },
+      "id": "request-schedule-briefing",
+      "name": "Request Schedule Briefing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.shouldSend}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "has-briefing",
+      "name": "Has Briefing",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawMessages = Array.isArray($json.discordMessages)\n  ? $json.discordMessages\n  : [$json.discordMessage];\nconst messages = rawMessages\n  .map((message) => (typeof message === 'string' ? message.trim() : ''))\n  .filter(Boolean);\n\nreturn messages.map((content) => ({\n  json: {\n    ...$json,\n    discordPayload: {\n      content,\n      flags: 4,\n      allowed_mentions: {\n        parse: []\n      }\n    }\n  }\n}));"
+      },
+      "id": "prepare-discord-messages",
+      "name": "Prepare Discord Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{\"https://discord.com/api/v10/channels/\" + $env.SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID + \"/messages\"}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{String($env.DISCORD_BOT_TOKEN || \"\").startsWith(\"Bot \") ? String($env.DISCORD_BOT_TOKEN || \"\") : \"Bot \" + String($env.DISCORD_BOT_TOKEN || \"\")}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json.discordPayload)}}",
+        "responseFormat": "json"
+      },
+      "id": "send-discord",
+      "name": "Send Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Daily Schedule": {
+      "main": [
+        [
+          {
+            "node": "Prepare Schedule Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Schedule Requests": {
+      "main": [
+        [
+          {
+            "node": "Request Schedule Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request Schedule Briefing": {
+      "main": [
+        [
+          {
+            "node": "Has Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Briefing": {
+      "main": [
+        [
+          {
+            "node": "Prepare Discord Messages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Prepare Discord Messages": {
+      "main": [
+        [
+          {
+            "node": "Send Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Seoul"
+  },
+  "staticData": null,
+  "pinData": {},
+  "versionId": "schedule-briefing-v1",
+  "active": false
+}

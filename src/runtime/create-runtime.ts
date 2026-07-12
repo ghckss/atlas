@@ -2,14 +2,17 @@ import {
   HermesChatService,
   HermesNewsBriefingService,
   MemoryContextService,
+  ScheduleService,
   type MemoryRepository,
+  type ScheduleRepository,
   SoulPipeline,
   TaskPlanner
 } from "../application";
 import {
   HttpNewsSourceClient,
   Mem0HttpClient,
-  Mem0MemoryAdapter
+  Mem0MemoryAdapter,
+  PostgresScheduleRepository
 } from "../infrastructure";
 import type { DiscordInterfaceConfig } from "../interfaces";
 import type { RuntimeConfig } from "./config/runtime-config";
@@ -26,12 +29,14 @@ export interface LocalRuntime {
   chat: HermesChatService;
   newsBriefing: HermesNewsBriefingService;
   newsCollector: HttpNewsSourceClient;
+  schedule: ScheduleService;
   discord: DiscordInterfaceConfig;
 }
 
 export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
   const embeddingProvider = new DeterministicEmbeddingProvider();
   const memoryRepository = createMemoryRepository(config);
+  const scheduleRepository = createScheduleRepository(config);
   const memoryContext = new MemoryContextService(
     embeddingProvider,
     memoryRepository
@@ -50,12 +55,17 @@ export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
     newsCollector: new HttpNewsSourceClient({
       timeoutMs: config.news.collectionTimeoutMs
     }),
+    schedule: new ScheduleService(scheduleRepository),
     discord: {
       botUserId: config.discord.botUserId,
       dedicatedChannelId: config.discord.dedicatedChannelId,
       ownerUserIds: config.discord.ownerUserIds
     }
   };
+}
+
+function createScheduleRepository(config: RuntimeConfig): ScheduleRepository {
+  return new PostgresScheduleRepository(config.databaseUrl);
 }
 
 function createSoulRuntime(config: RuntimeConfig) {

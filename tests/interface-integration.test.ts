@@ -4,13 +4,17 @@ import test from "node:test";
 
 import {
   createNewsBriefingWebhookHandler,
+  createScheduleBriefingWebhookHandler,
   handleSlashCommand,
   HermesNewsBriefingService,
+  ScheduleService,
   routeDiscordMessage,
   SoulPipeline,
   TaskPlanner,
-  newsBriefingWorkflow
+  newsBriefingWorkflow,
+  scheduleBriefingWorkflow
 } from "../src";
+import type { ScheduleBriefingRequest } from "../src";
 
 test("Discord router only accepts mentions in the dedicated channel", () => {
   const config = {
@@ -446,4 +450,102 @@ test("news briefing workflow sends Discord messages without n8n credentials", ()
     workflow.connections["Has Prepared Thread Content"].main[0][0].node,
     "Send Thread Message"
   );
+});
+
+test("schedule briefing webhook validates secret and delegates schedule summary", async () => {
+  const handler = createScheduleBriefingWebhookHandler(
+    {
+      async buildBriefing(input: ScheduleBriefingRequest) {
+        return {
+          shouldSend: true,
+          discordMessage: `${input.mode}:${input.date}:${input.discordChannelId}`,
+          discordMessages: [`${input.mode}:${input.date}:${input.discordChannelId}`],
+          eventCount: 1
+        };
+      }
+    } as unknown as ScheduleService,
+    "secret",
+    {
+      discordChannelId: "schedule-channel",
+      timezone: "Asia/Seoul"
+    }
+  );
+
+  assert.equal(
+    (
+      await handler({
+        headers: {
+          "x-n8n-webhook-secret": "wrong"
+        },
+        body: {
+          mode: "daily"
+        }
+      })
+    ).status,
+    401
+  );
+
+  const response = await handler({
+    headers: {
+      "x-n8n-webhook-secret": "secret"
+    },
+    body: {
+      mode: "monthly",
+      date: "2026-07-01"
+    }
+  });
+
+  assert.deepEqual(response, {
+    status: 200,
+    body: {
+      shouldSend: true,
+      discordMessage: "monthly:2026-07-01:schedule-channel",
+      discordMessages: ["monthly:2026-07-01:schedule-channel"],
+      eventCount: 1
+    }
+  });
+});
+
+test("schedule briefing workflow declares automation and Discord delivery", () => {
+  assert.equal(
+    scheduleBriefingWorkflow.jsonExportPath,
+    "workflows/schedule-briefing/schedule-briefing.n8n.json"
+  );
+  assert.ok(
+    scheduleBriefingWorkflow.environmentVariables.includes(
+      "HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL"
+    )
+  );
+  const workflow = JSON.parse(
+    readFileSync("workflows/schedule-briefing/schedule-briefing.n8n.json", "utf8")
+  );
+  const schedule = workflow.nodes.find(
+    (node: { name?: string }) => node.name === "Daily Schedule"
+  );
+  const prepareRequests = workflow.nodes.find(
+    (node: { name?: string }) => node.name === "Prepare Schedule Requests"
+  );
+  const requestBriefing = workflow.nodes.find(
+    (node: { name?: string }) => node.name === "Request Schedule Briefing"
+  );
+  const sendDiscord = workflow.nodes.find(
+    (node: { name?: string }) => node.name === "Send Discord"
+  );
+
+  assert.deepEqual(schedule.parameters.rule.interval, [
+    {
+      field: "days",
+      daysInterval: 1,
+      triggerAtHour: 10,
+      triggerAtMinute: 0
+    }
+  ]);
+  assert.match(prepareRequests.parameters.jsCode, /mode: 'daily'/);
+  assert.match(prepareRequests.parameters.jsCode, /mode: 'monthly'/);
+  assert.equal(
+    requestBriefing.parameters.url,
+    "={{$env.HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL}}"
+  );
+  assert.equal(sendDiscord.parameters.url, "={{\"https://discord.com/api/v10/channels/\" + $env.SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID + \"/messages\"}}");
+  assert.equal(workflow.settings.timezone, "Asia/Seoul");
 });

@@ -9,6 +9,7 @@ import {
   MemoryContextService,
   CodexCliSoulRuntime,
   OpenAISoulRuntime,
+  ScheduleService,
   SoulPipeline,
   TaskPlanner
 } from "../src";
@@ -21,6 +22,10 @@ import type {
   EmbeddingVector,
   MemoryRepository,
   MemoryRecord,
+  ScheduleEvent,
+  ScheduleEventDraft,
+  ScheduleEventRange,
+  ScheduleRepository,
   SoulRuntimeInput
 } from "../src";
 
@@ -370,6 +375,34 @@ test("HermesChatService records conversation and returns pipeline output", async
   );
 });
 
+test("ScheduleService stores KST schedule events and builds daily briefings", async () => {
+  const repository = new FakeScheduleRepository();
+  const service = new ScheduleService(repository);
+  const event = await service.addEvent({
+    ownerUserId: "user-1",
+    discordChannelId: "channel-1",
+    title: "병원 예약",
+    localDate: "2026-07-13",
+    localTime: "15:00",
+    timezone: "Asia/Seoul",
+    notes: "신분증 챙기기"
+  });
+
+  assert.equal(event.startsAt.toISOString(), "2026-07-13T06:00:00.000Z");
+
+  const briefing = await service.buildBriefing({
+    mode: "daily",
+    date: "2026-07-13",
+    discordChannelId: "channel-1",
+    timezone: "Asia/Seoul"
+  });
+
+  assert.equal(briefing.shouldSend, true);
+  assert.equal(briefing.eventCount, 1);
+  assert.match(briefing.discordMessage, /오늘의 일정 \(2026-07-13\)/);
+  assert.match(briefing.discordMessage, /1\. 2026-07-13 15:00 병원 예약 - 신분증 챙기기/);
+});
+
 class FakeEmbeddingProvider implements EmbeddingProvider {
   lastInput?: EmbeddingInput;
 
@@ -430,6 +463,39 @@ class FakeChatHistoryRepository implements ChatHistoryRepository {
 
   async listRecentMessages(): Promise<readonly ChatMessage[]> {
     return this.messages;
+  }
+}
+
+class FakeScheduleRepository implements ScheduleRepository {
+  readonly events: ScheduleEvent[] = [];
+
+  async createEvent(draft: ScheduleEventDraft): Promise<ScheduleEvent> {
+    const event: ScheduleEvent = {
+      id: `schedule-${this.events.length + 1}`,
+      ownerUserId: draft.ownerUserId,
+      discordGuildId: draft.discordGuildId,
+      discordChannelId: draft.discordChannelId,
+      title: draft.title,
+      startsAt: draft.startsAt,
+      timezone: draft.timezone,
+      notes: draft.notes,
+      status: "active",
+      createdAt: new Date("2026-07-10T00:00:00.000Z"),
+      updatedAt: new Date("2026-07-10T00:00:00.000Z")
+    };
+
+    this.events.push(event);
+    return event;
+  }
+
+  async listEvents(range: ScheduleEventRange): Promise<readonly ScheduleEvent[]> {
+    return this.events.filter(
+      (event) =>
+        event.discordChannelId === range.discordChannelId &&
+        event.status === (range.status ?? "active") &&
+        event.startsAt >= range.startsAtFrom &&
+        event.startsAt < range.startsAtTo
+    );
   }
 }
 

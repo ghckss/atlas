@@ -1,6 +1,6 @@
-import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import pg from "pg";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -14,17 +14,62 @@ const migrationFiles = readdirSync(migrationsDir)
   .filter((file) => file.endsWith(".sql"))
   .sort();
 
-for (const file of migrationFiles) {
-  const sql = readFileSync(join(migrationsDir, file), "utf8");
-  const result = spawnSync("psql", [databaseUrl, "-v", "ON_ERROR_STOP=1"], {
-    input: sql,
-    stdio: ["pipe", "inherit", "inherit"]
-  });
+const { Client } = pg;
+const client = new Client({ connectionString: databaseUrl });
 
-  if (result.status !== 0) {
-    console.error(`Migration failed: ${file}`);
-    process.exit(result.status ?? 1);
+try {
+  await client.connect();
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      filename TEXT PRIMARY KEY,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+
+  await markExistingBaseline("0001_initial.sql", "public.app_users");
+  await markExistingBaseline("0002_schedule_events.sql", "public.schedule_events");
+
+  const appliedResult = await client.query("SELECT filename FROM schema_migrations");
+  const appliedFiles = new Set(appliedResult.rows.map((row) => row.filename));
+
+  for (const file of migrationFiles) {
+    if (appliedFiles.has(file)) {
+      console.log(`Skipped migration: ${file}`);
+      continue;
+    }
+
+    const sql = readFileSync(join(migrationsDir, file), "utf8");
+
+    await client.query("BEGIN");
+    try {
+      await client.query(sql);
+      await client.query("INSERT INTO schema_migrations (filename) VALUES ($1)", [file]);
+      await client.query("COMMIT");
+      console.log(`Applied migration: ${file}`);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    }
+  }
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
+  process.exitCode = 1;
+} finally {
+  await client.end();
+}
+
+async function markExistingBaseline(filename, relationName) {
+  if (!migrationFiles.includes(filename)) {
+    return;
   }
 
-  console.log(`Applied migration: ${file}`);
+  const relationResult = await client.query("SELECT to_regclass($1) AS relation", [relationName]);
+  if (!relationResult.rows[0]?.relation) {
+    return;
+  }
+
+  await client.query(
+    "INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING",
+    [filename]
+  );
 }

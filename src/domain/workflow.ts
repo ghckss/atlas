@@ -49,3 +49,24 @@ export const newsBriefingWorkflow: WorkflowAsset = {
     "Discord 전송 실패 시 n8n 재시도 정책을 사용한다."
   ]
 };
+
+export const scheduleBriefingWorkflow: WorkflowAsset = {
+  id: "schedule-briefing",
+  purpose: "등록된 일정을 조회해 매일 및 매월 Discord 전용 채널로 요약 전송한다.",
+  trigger: "scheduler",
+  jsonExportPath: "workflows/schedule-briefing/schedule-briefing.n8n.json",
+  documentationPath: "workflows/schedule-briefing/README.md",
+  environmentVariables: [
+    "N8N_API_URL",
+    "N8N_API_KEY",
+    "N8N_WEBHOOK_SECRET",
+    "DISCORD_BOT_TOKEN",
+    "HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL",
+    "SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID"
+  ],
+  failureHandling: [
+    "Hermes webhook이 빈 브리핑을 반환하면 Discord 전송을 건너뛴다.",
+    "Hermes webhook이 401을 반환하면 N8N_WEBHOOK_SECRET 값을 확인한다.",
+    "Discord 전송 실패 시 n8n 재시도 정책을 사용한다."
+  ]
+};

@@ -7,6 +7,7 @@ test("runtime config loads required local MVP settings", () => {
   const config = loadRuntimeConfig({
     PORT: "3100",
     DISCORD_BOT_USER_ID: "bot-1",
+    DISCORD_APPLICATION_ID: "app-1",
     DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
     DISCORD_OWNER_USER_IDS: "owner-1, owner-2",
     N8N_WEBHOOK_SECRET: "secret",
@@ -16,6 +17,8 @@ test("runtime config loads required local MVP settings", () => {
     MEM0_BASE_URL: "https://mem0.example",
     NEWS_PROVIDERS: "google-news, naver-news",
     NEWS_QUERY: "AI agent",
+    SCHEDULE_TIMEZONE: "Asia/Seoul",
+    SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID: "schedule-channel",
     LLM_PROVIDER: "openai",
     LLM_LOG_FILE: "logs/custom-llm.log",
     OPENAI_API_KEY: "openai-key",
@@ -46,6 +49,8 @@ test("runtime config loads required local MVP settings", () => {
   assert.equal(config.n8n.webhookSecret, "secret");
   assert.equal(config.n8n.apiUrl, "http://localhost:5678");
   assert.equal(config.n8n.apiKey, "n8n-key");
+  assert.equal(config.schedule.timezone, "Asia/Seoul");
+  assert.equal(config.schedule.briefingDiscordChannelId, "schedule-channel");
   assert.equal(config.mem0.apiKey, "mem0-key");
   assert.equal(config.mem0.baseUrl, "https://mem0.example");
   assert.equal(config.llm.provider, "openai");
@@ -88,6 +93,8 @@ test("runtime config defaults news collection to Google News top stories", () =>
   assert.equal(config.news.googleLanguage, "ko");
   assert.equal(config.news.googleCountry, "KR");
   assert.equal(config.news.maxArticles, 10);
+  assert.equal(config.schedule.timezone, "Asia/Seoul");
+  assert.equal(config.schedule.briefingDiscordChannelId, "channel-1");
   assert.equal(config.llm.provider, "template");
   assert.equal(config.llm.logFilePath, "logs/llm-runtime.log");
   assert.equal(config.llm.openaiModel, "gpt-5.6");

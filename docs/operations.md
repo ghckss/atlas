@@ -6,6 +6,7 @@
 - `DATABASE_URL`
 - `DISCORD_BOT_TOKEN`
 - `DISCORD_BOT_USER_ID`
+- `DISCORD_APPLICATION_ID`
 - `DISCORD_ENABLE_GATEWAY`
 - `DISCORD_GUILD_ID`
 - `DISCORD_DEDICATED_CHANNEL_ID`
@@ -33,6 +34,9 @@
 - `N8N_WEBHOOK_SECRET`
 - `HERMES_NEWS_COLLECTION_URL`
 - `HERMES_NEWS_BRIEFING_WEBHOOK_URL`
+- `HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL`
+- `SCHEDULE_TIMEZONE`
+- `SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID`
 - `NEWS_PROVIDERS`
 - `NEWS_QUERY`
 - `NEWS_GOOGLE_LANGUAGE`
@@ -51,6 +55,13 @@
 - 일반 채널 메시지는 무시한다.
 - DM은 Owner 개인 작업이나 민감한 응답에 한해 제한적으로 처리한다.
 - 설정 변경과 시스템 변경은 Owner 권한으로 제한한다.
+- `/일정` slash command는 일정 추가 모달을 열고, 입력된 일정은 PostgreSQL에 저장한다.
+
+Discord slash command를 등록하거나 갱신하려면 다음 명령을 실행한다. `DISCORD_GUILD_ID`가 있으면 해당 서버에만 빠르게 반영하고, 없으면 global command로 등록한다.
+
+```bash
+pnpm discord:commands:sync
+```
 
 ## LLM Provider 운영
 
@@ -132,6 +143,8 @@ pnpm n8n:sync
 
 뉴스 브리핑의 `Send Discord` 노드는 n8n Discord credential을 사용하지 않는다. n8n 컨테이너 env의 `DISCORD_BOT_TOKEN`과 `NEWS_BRIEFING_DISCORD_CHANNEL_ID`를 사용해 Discord REST API를 직접 호출한다. `Prepare Discord Message` 노드는 빈 메시지를 걸러내고 Discord 2000자 제한을 재확인하며, `Send Discord`는 raw JSON body로 `{ content, flags, allowed_mentions }`를 전송한다. `flags=4`는 링크 embed preview를 억제한다. 추가 메시지가 있으면 `Create Discord Thread`가 첫 메시지 아래 thread를 만들고 `Send Thread Message`가 나머지를 전송한다.
 
+일정 브리핑 workflow는 매일 10:00 Asia/Seoul에 `HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL`을 호출한다. 매월 1일에는 월간 일정 요청도 함께 생성한다. Discord 전송은 `SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID`와 `DISCORD_BOT_TOKEN`을 사용한다.
+
 ## 검증
 
 ```bash
@@ -190,4 +203,6 @@ docker compose up -d postgres
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/hermes pnpm db:migrate
 ```
 
-`db:migrate`는 로컬에 `psql` 명령이 있어야 실행된다.
+`db:migrate`는 `schema_migrations` 테이블로 적용된 SQL 파일을 추적한다. 기존 DB에 `app_users` 또는 `schedule_events`가 이미 있으면 해당 baseline migration은 적용된 것으로 자동 표시한다.
+
+일정 기능은 `schedule_events` 테이블을 사용하므로 새 migration 적용이 필요하다.

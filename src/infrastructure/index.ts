@@ -4,3 +4,4 @@ export * from "./memory/mem0-memory-adapter";
 export * from "./n8n";
 export * from "./news";
 export * from "./postgres/memory-sql";
+export * from "./postgres/postgres-schedule-repository";
