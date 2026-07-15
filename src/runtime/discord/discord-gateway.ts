@@ -6,6 +6,7 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
+  ThreadAutoArchiveDuration,
   type ChatInputCommandInteraction,
   type Interaction,
   type ModalActionRowComponentBuilder,
@@ -54,9 +55,11 @@ export function createDiscordGatewayClient(
         error
       );
       try {
-        await message.reply({
-          content: truncateDiscordContent(formatDiscordGatewayErrorReply(error))
-        });
+        await sendDiscordThreadReply(
+          message,
+          formatDiscordGatewayErrorReply(error),
+          logger
+        );
       } catch (replyError) {
         logger.error(
           `Discord error reply failed. messageId=${message.id} channelId=${message.channelId}`,
@@ -207,10 +210,8 @@ async function handleGatewayMessage(
         `souls=${result.body.souls?.join(",") ?? ""}`
       ].join(" ")
     );
-    await message.reply({
-      content: truncateDiscordContent(result.body.answer)
-    });
-    logger.info(`Discord reply sent. messageId=${message.id}`);
+    await sendDiscordThreadReply(message, result.body.answer, logger);
+    logger.info(`Discord thread reply sent. messageId=${message.id}`);
     return;
   }
 
@@ -232,6 +233,82 @@ async function handleGatewayMessage(
 
 function extractRawMentionedUserIds(content: string): readonly string[] {
   return [...content.matchAll(/<@!?(\d+)>/g)].map((match) => match[1]);
+}
+
+interface DiscordThreadReplyTarget {
+  id: string;
+  send(options: { content: string }): Promise<unknown>;
+}
+
+export async function sendDiscordThreadReply(
+  message: Message,
+  content: string,
+  logger: DiscordGatewayLogger = console
+): Promise<void> {
+  const replyContent = truncateDiscordContent(content);
+  const thread = await getOrCreateReplyThread(message, logger);
+
+  if (thread) {
+    await thread.send({
+      content: replyContent
+    });
+    logger.info(
+      `Discord reply sent in thread. messageId=${message.id} threadId=${thread.id}`
+    );
+    return;
+  }
+
+  await message.reply({
+    content: replyContent
+  });
+  logger.info(`Discord reply sent in channel. messageId=${message.id}`);
+}
+
+async function getOrCreateReplyThread(
+  message: Message,
+  logger: DiscordGatewayLogger
+): Promise<DiscordThreadReplyTarget | undefined> {
+  if (isThreadReplyTarget(message.channel)) {
+    return message.channel;
+  }
+
+  if (message.guildId === null) {
+    return undefined;
+  }
+
+  try {
+    return await message.startThread({
+      name: formatDiscordThreadName(message.content),
+      autoArchiveDuration: ThreadAutoArchiveDuration.OneDay,
+      reason: "Hermes assistant response"
+    });
+  } catch (error) {
+    logger.error(
+      `Discord thread creation failed. messageId=${message.id} channelId=${message.channelId}`,
+      error
+    );
+    return undefined;
+  }
+}
+
+function isThreadReplyTarget(
+  channel: Message["channel"]
+): channel is Message["channel"] & DiscordThreadReplyTarget {
+  return (
+    typeof (channel as { isThread?: () => boolean }).isThread === "function" &&
+    (channel as { isThread: () => boolean }).isThread() &&
+    typeof (channel as { send?: unknown }).send === "function"
+  );
+}
+
+export function formatDiscordThreadName(content: string): string {
+  const normalized = content
+    .replace(/<@!?\d+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const base = normalized || "Hermes 대화";
+
+  return base.length > 80 ? `${base.slice(0, 77)}...` : base;
 }
 
 async function handleGatewayInteraction(

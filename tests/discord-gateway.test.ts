@@ -5,8 +5,10 @@ import {
   createDiscordGatewayClient,
   createLocalRuntime,
   formatDiscordGatewayErrorReply,
+  formatDiscordThreadName,
   loadRuntimeConfig,
   roleForDiscordUser,
+  sendDiscordThreadReply,
   truncateDiscordContent
 } from "../src";
 
@@ -53,3 +55,97 @@ test("Discord Gateway client can be constructed without logging in", () => {
   assert.equal(client.isReady(), false);
   client.destroy();
 });
+
+test("Discord Gateway formats thread names from mention content", () => {
+  assert.equal(formatDiscordThreadName("<@123> 안녕"), "안녕");
+  assert.equal(formatDiscordThreadName("<@123>"), "Hermes 대화");
+  assert.equal(formatDiscordThreadName("x".repeat(100)).length, 80);
+});
+
+test("Discord Gateway sends mention replies in a new thread", async () => {
+  const sends: string[] = [];
+  const replies: string[] = [];
+  const startedThreads: string[] = [];
+  const message = {
+    id: "message-1",
+    channelId: "channel-1",
+    guildId: "guild-1",
+    content: "<@123> 오늘 일정 알려줘",
+    channel: {
+      isThread: () => false
+    },
+    async startThread(options: { name: string }) {
+      startedThreads.push(options.name);
+      return {
+        id: "thread-1",
+        async send(input: { content: string }) {
+          sends.push(input.content);
+        }
+      };
+    },
+    async reply(input: { content: string }) {
+      replies.push(input.content);
+    }
+  };
+
+  await sendDiscordThreadReply(message as never, "답변입니다.", silentLogger);
+
+  assert.deepEqual(startedThreads, ["오늘 일정 알려줘"]);
+  assert.deepEqual(sends, ["답변입니다."]);
+  assert.deepEqual(replies, []);
+});
+
+test("Discord Gateway reuses an existing thread for mention replies", async () => {
+  const sends: string[] = [];
+  const message = {
+    id: "message-1",
+    channelId: "thread-1",
+    guildId: "guild-1",
+    content: "<@123> 이어서 질문",
+    channel: {
+      id: "thread-1",
+      isThread: () => true,
+      async send(input: { content: string }) {
+        sends.push(input.content);
+      }
+    },
+    async startThread() {
+      throw new Error("should not start a nested thread");
+    },
+    async reply() {
+      throw new Error("should not reply in channel");
+    }
+  };
+
+  await sendDiscordThreadReply(message as never, "스레드 답변", silentLogger);
+
+  assert.deepEqual(sends, ["스레드 답변"]);
+});
+
+test("Discord Gateway falls back to channel replies when thread creation fails", async () => {
+  const replies: string[] = [];
+  const message = {
+    id: "message-1",
+    channelId: "channel-1",
+    guildId: "guild-1",
+    content: "<@123> 질문",
+    channel: {
+      isThread: () => false
+    },
+    async startThread() {
+      throw new Error("missing thread permission");
+    },
+    async reply(input: { content: string }) {
+      replies.push(input.content);
+    }
+  };
+
+  await sendDiscordThreadReply(message as never, "fallback", silentLogger);
+
+  assert.deepEqual(replies, ["fallback"]);
+});
+
+const silentLogger = {
+  info() {},
+  error() {}
+};
