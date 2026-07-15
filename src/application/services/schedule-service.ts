@@ -1,9 +1,8 @@
-import type { ScheduleEvent, ScheduleEventDraft } from "../../domain";
+import { randomUUID } from "node:crypto";
 import type {
   CalendarEvent,
   CalendarEventSink,
-  CalendarEventSource,
-  ScheduleRepository
+  CalendarEventSource
 } from "../ports";
 
 export interface AddScheduleEventInput {
@@ -34,30 +33,32 @@ export interface ScheduleBriefingResponse {
 }
 
 export interface AddScheduleEventResult {
-  event: ScheduleEvent;
+  event: CreatedScheduleCalendarEvent;
   calendar: ScheduleCalendarSyncResult;
 }
 
-export type ScheduleCalendarSyncResult =
-  | {
-      status: "disabled";
-    }
-  | {
-      status: "created";
-      provider: "google";
-      externalEventId: string;
-      url?: string;
-    }
-  | {
-      status: "failed";
-      errorMessage: string;
-    };
+export interface CreatedScheduleCalendarEvent {
+  id: string;
+  title: string;
+  startsAt: Date;
+  timezone: string;
+  notes?: string;
+  externalCalendarProvider: "google";
+  externalCalendarEventId: string;
+  externalCalendarUrl?: string;
+}
+
+export type ScheduleCalendarSyncResult = {
+  status: "created";
+  provider: "google";
+  externalEventId: string;
+  url?: string;
+};
 
 const DISCORD_MESSAGE_LIMIT = 2000;
 
 export class ScheduleService {
   constructor(
-    private readonly repository: ScheduleRepository,
     private readonly calendarEventSink?: CalendarEventSink,
     private readonly calendarEventSource?: CalendarEventSource
   ) {}
@@ -75,59 +76,39 @@ export class ScheduleService {
       timezone: input.timezone
     });
     const notes = input.notes?.trim() || undefined;
-    const draft: ScheduleEventDraft = {
-      ownerUserId: input.ownerUserId,
-      discordGuildId: input.discordGuildId,
-      discordChannelId: input.discordChannelId,
+
+    if (!this.calendarEventSink) {
+      throw new Error("일정 기능은 Google Calendar 설정이 필요합니다.");
+    }
+
+    const sourceId = randomUUID();
+    const calendarEvent = await this.calendarEventSink.createEvent({
+      sourceId,
       title,
       startsAt,
       timezone: input.timezone,
       notes
+    });
+    const event: CreatedScheduleCalendarEvent = {
+      id: sourceId,
+      title,
+      startsAt,
+      timezone: input.timezone,
+      notes,
+      externalCalendarProvider: calendarEvent.provider,
+      externalCalendarEventId: calendarEvent.externalEventId,
+      externalCalendarUrl: calendarEvent.url
     };
 
-    let event = await this.repository.createEvent(draft);
-
-    if (!this.calendarEventSink) {
-      return {
-        event,
-        calendar: {
-          status: "disabled"
-        }
-      };
-    }
-
-    try {
-      const calendarEvent = await this.calendarEventSink.createEvent({
-        sourceId: event.id,
-        title: event.title,
-        startsAt: event.startsAt,
-        timezone: event.timezone,
-        notes: event.notes
-      });
-      event = await this.repository.attachExternalCalendarEvent(event.id, {
+    return {
+      event,
+      calendar: {
+        status: "created",
         provider: calendarEvent.provider,
         externalEventId: calendarEvent.externalEventId,
         url: calendarEvent.url
-      });
-
-      return {
-        event,
-        calendar: {
-          status: "created",
-          provider: calendarEvent.provider,
-          externalEventId: calendarEvent.externalEventId,
-          url: calendarEvent.url
-        }
-      };
-    } catch (error) {
-      return {
-        event,
-        calendar: {
-          status: "failed",
-          errorMessage: error instanceof Error ? error.message : String(error)
-        }
-      };
-    }
+      }
+    };
   }
 
   async buildBriefing(
@@ -137,21 +118,15 @@ export class ScheduleService {
       request.mode === "daily"
         ? localDayRange(request.date, request.timezone)
         : localMonthRange(request.date, request.timezone);
-    const repositoryEvents = await this.repository.listEvents({
-      discordGuildId: request.discordGuildId,
-      discordChannelId: request.discordChannelId,
+    if (!this.calendarEventSource) {
+      throw new Error("일정 조회는 Google Calendar 설정이 필요합니다.");
+    }
+
+    const events = await this.calendarEventSource.listEvents({
       startsAtFrom: range.from,
       startsAtTo: range.to,
-      status: "active"
+      timezone: request.timezone
     });
-    const calendarEvents = this.calendarEventSource
-      ? await this.calendarEventSource.listEvents({
-          startsAtFrom: range.from,
-          startsAtTo: range.to,
-          timezone: request.timezone
-        })
-      : [];
-    const events = mergeBriefingEvents(repositoryEvents, calendarEvents);
     const message = formatScheduleBriefing({
       mode: request.mode,
       date: request.date,
@@ -165,19 +140,9 @@ export class ScheduleService {
       discordMessage: discordMessages[0] ?? "",
       discordMessages,
       eventCount: events.length,
-      calendarEventCount: calendarEvents.length
+      calendarEventCount: events.length
     };
   }
-}
-
-interface ScheduleBriefingEvent {
-  id: string;
-  title: string;
-  startsAt: Date;
-  timezone: string;
-  notes?: string;
-  externalCalendarProvider?: "google";
-  externalCalendarEventId?: string;
 }
 
 export function parseLocalDateTime(input: {
@@ -291,7 +256,7 @@ function formatScheduleBriefing(input: {
   mode: "daily" | "monthly";
   date: string;
   timezone: string;
-  events: readonly ScheduleBriefingEvent[];
+  events: readonly CalendarEvent[];
 }): string {
   if (input.mode === "daily") {
     return [
@@ -315,7 +280,7 @@ function formatScheduleBriefing(input: {
 }
 
 function formatEventLine(
-  event: ScheduleBriefingEvent,
+  event: CalendarEvent,
   index: number,
   timezone: string
 ): string {
@@ -323,63 +288,6 @@ function formatEventLine(
   const notes = event.notes ? ` - ${event.notes}` : "";
 
   return `${index + 1}. ${local.date} ${local.time} ${event.title}${notes}`;
-}
-
-function mergeBriefingEvents(
-  repositoryEvents: readonly ScheduleEvent[],
-  calendarEvents: readonly CalendarEvent[]
-): readonly ScheduleBriefingEvent[] {
-  const calendarEventKeys = new Set(
-    calendarEvents.map((event) =>
-      externalCalendarKey(event.provider, event.externalEventId)
-    )
-  );
-  const events = [
-    ...calendarEvents.map((event) => ({
-      id: `google:${event.externalEventId}`,
-      title: event.title,
-      startsAt: event.startsAt,
-      timezone: event.timezone,
-      notes: event.notes,
-      externalCalendarProvider: event.provider,
-      externalCalendarEventId: event.externalEventId
-    })),
-    ...repositoryEvents
-      .filter(
-        (event) =>
-          !event.externalCalendarProvider ||
-          !event.externalCalendarEventId ||
-          !calendarEventKeys.has(
-            externalCalendarKey(
-              event.externalCalendarProvider,
-              event.externalCalendarEventId
-            )
-          )
-      )
-      .map((event) => ({
-        id: event.id,
-        title: event.title,
-        startsAt: event.startsAt,
-        timezone: event.timezone,
-        notes: event.notes,
-        externalCalendarProvider: event.externalCalendarProvider,
-        externalCalendarEventId: event.externalCalendarEventId
-      }))
-  ];
-
-  return events.sort((left, right) => {
-    const byTime = left.startsAt.getTime() - right.startsAt.getTime();
-
-    if (byTime !== 0) {
-      return byTime;
-    }
-
-    return left.title.localeCompare(right.title, "ko");
-  });
-}
-
-function externalCalendarKey(provider: string, id: string): string {
-  return `${provider}:${id}`;
 }
 
 function splitDiscordMessages(message: string): readonly string[] {

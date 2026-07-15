@@ -6,7 +6,6 @@ import {
   type CalendarEventSource,
   type CalendarEventSink,
   type MemoryRepository,
-  type ScheduleRepository,
   SoulPipeline,
   TaskPlanner
 } from "../application";
@@ -15,7 +14,6 @@ import {
   HttpNewsSourceClient,
   Mem0HttpClient,
   Mem0MemoryAdapter,
-  PostgresScheduleRepository
 } from "../infrastructure";
 import type { DiscordInterfaceConfig } from "../interfaces";
 import type { RuntimeConfig } from "./config/runtime-config";
@@ -40,7 +38,6 @@ export interface LocalRuntime {
 export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
   const embeddingProvider = new DeterministicEmbeddingProvider();
   const memoryRepository = createMemoryRepository(config);
-  const scheduleRepository = createScheduleRepository(config);
   const calendarClient = createCalendarClient(config);
   const memoryContext = new MemoryContextService(
     embeddingProvider,
@@ -60,7 +57,7 @@ export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
     newsCollector: new HttpNewsSourceClient({
       timeoutMs: config.news.collectionTimeoutMs
     }),
-    schedule: new ScheduleService(scheduleRepository, calendarClient, calendarClient),
+    schedule: new ScheduleService(calendarClient, calendarClient),
     scheduleTimezone: config.schedule.timezone,
     discord: {
       botUserId: config.discord.botUserId,
@@ -68,10 +65,6 @@ export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
       ownerUserIds: config.discord.ownerUserIds
     }
   };
-}
-
-function createScheduleRepository(config: RuntimeConfig): ScheduleRepository {
-  return new PostgresScheduleRepository(config.databaseUrl);
 }
 
 function createCalendarClient(

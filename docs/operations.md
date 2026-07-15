@@ -61,8 +61,8 @@
 - 일반 채널 메시지는 무시한다.
 - DM은 Owner 개인 작업이나 민감한 응답에 한해 제한적으로 처리한다.
 - 설정 변경과 시스템 변경은 Owner 권한으로 제한한다.
-- `/일정` slash command는 일정 추가 모달을 열고, 입력된 일정은 PostgreSQL에 저장한다.
-- `GOOGLE_CALENDAR_ENABLED=true`이면 `/일정` 등록 후 Google Calendar에도 같은 일정을 생성하고, 자연어 일정 조회와 정기 브리핑은 Google Calendar의 실제 이벤트를 읽어 PostgreSQL 일정과 병합한다.
+- `/일정` slash command는 일정 추가 모달을 열고, 입력된 일정은 Google Calendar에 직접 저장한다.
+- 자연어 일정 조회와 정기 브리핑은 Google Calendar의 실제 이벤트를 읽는다.
 
 Discord slash command를 등록하거나 갱신하려면 다음 명령을 실행한다. `DISCORD_GUILD_ID`가 있으면 해당 서버에만 빠르게 반영하고, 없으면 global command로 등록한다.
 
@@ -154,7 +154,7 @@ pnpm n8n:sync
 
 ## Google Calendar 운영
 
-Google Calendar 연동은 기본 비활성화 상태이다. 활성화하려면 Google Cloud OAuth Client를 만들고 Calendar API를 활성화한 뒤 `https://www.googleapis.com/auth/calendar.events` scope로 refresh token을 발급받아 설정한다.
+Google Calendar 연동은 기본 비활성화 상태이다. 일정 등록, 자연어 일정 조회, 정기 일정 브리핑은 Google Calendar를 원본으로 사용하므로 운영 환경에서는 반드시 활성화해야 한다. 활성화하려면 Google Cloud OAuth Client를 만들고 Calendar API를 활성화한 뒤 `https://www.googleapis.com/auth/calendar.events` scope로 refresh token을 발급받아 설정한다.
 
 ```env
 GOOGLE_CALENDAR_ENABLED=true
@@ -165,9 +165,16 @@ GOOGLE_CALENDAR_REFRESH_TOKEN=...
 GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES=60
 ```
 
-`/일정` 모달에는 종료 시간이 없으므로 Google Calendar event의 종료 시간은 `GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES`로 계산한다. Google Calendar 생성에 실패해도 PostgreSQL 일정 저장은 유지되며, Discord 모달 응답에 Calendar 저장 실패 메시지를 표시한다.
+`/일정` 모달에는 종료 시간이 없으므로 Google Calendar event의 종료 시간은 `GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES`로 계산한다. Google Calendar 생성에 실패하면 로컬 DB fallback 없이 요청을 실패 처리하고 Discord 모달 응답에 오류 메시지를 표시한다.
 
-자연어 일정 조회와 n8n 일정 브리핑은 같은 refresh token으로 Google Calendar `events` 목록을 읽는다. `/일정`으로 만든 이벤트가 Google Calendar에 동기화된 경우에는 Google Calendar의 이벤트 ID를 기준으로 PostgreSQL 중복 항목을 제거하고, Google Calendar에 직접 추가한 일정도 함께 표시한다.
+자연어 일정 조회와 n8n 일정 브리핑은 같은 refresh token으로 Google Calendar `events` 목록을 읽는다. PostgreSQL `schedule_events`는 더 이상 런타임 일정 저장소로 사용하지 않는다.
+
+기존 PostgreSQL 일정 데이터가 있으면 아래 명령으로 Google Calendar에 1회 마이그레이션한다. 이미 `external_calendar_event_id`가 있는 row는 건너뛰며, 새로 생성한 Google event id는 기존 row에 기록해 재실행 시 중복 생성을 피한다.
+
+```bash
+pnpm schedule:migrate:google -- --dry-run
+pnpm schedule:migrate:google
+```
 
 ## 검증
 
@@ -227,6 +234,6 @@ docker compose up -d postgres
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/hermes pnpm db:migrate
 ```
 
-`db:migrate`는 `schema_migrations` 테이블로 적용된 SQL 파일을 추적한다. 기존 DB에 `app_users` 또는 `schedule_events`가 이미 있으면 해당 baseline migration은 적용된 것으로 자동 표시한다.
+`db:migrate`는 `schema_migrations` 테이블로 적용된 SQL 파일을 추적한다. 기존 DB에 `app_users` 또는 legacy `schedule_events`가 이미 있으면 해당 baseline migration은 적용된 것으로 자동 표시한다.
 
-일정 기능은 `schedule_events` 테이블을 사용하므로 새 migration 적용이 필요하다.
+일정 런타임은 Google Calendar를 원본으로 사용한다. PostgreSQL `schedule_events`는 과거 데이터 마이그레이션 입력으로만 남긴다.

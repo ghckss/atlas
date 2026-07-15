@@ -29,10 +29,6 @@ import type {
   EmbeddingVector,
   MemoryRepository,
   MemoryRecord,
-  ScheduleEvent,
-  ScheduleEventDraft,
-  ScheduleEventRange,
-  ScheduleRepository,
   SoulRuntimeInput
 } from "../src";
 
@@ -382,9 +378,9 @@ test("HermesChatService records conversation and returns pipeline output", async
   );
 });
 
-test("ScheduleService stores KST schedule events and builds daily briefings", async () => {
-  const repository = new FakeScheduleRepository();
-  const service = new ScheduleService(repository);
+test("ScheduleService creates schedule events directly in Google Calendar", async () => {
+  const calendar = new FakeCalendarEventClient();
+  const service = new ScheduleService(calendar, calendar);
   const result = await service.addEvent({
     ownerUserId: "user-1",
     discordGuildId: "guild-1",
@@ -398,8 +394,56 @@ test("ScheduleService stores KST schedule events and builds daily briefings", as
   const event = result.event;
 
   assert.equal(event.startsAt.toISOString(), "2026-07-13T06:00:00.000Z");
-  assert.deepEqual(result.calendar, { status: "disabled" });
+  assert.equal(event.externalCalendarProvider, "google");
+  assert.equal(event.externalCalendarEventId, "google-event-1");
+  assert.equal(calendar.createdEvents.length, 1);
+  assert.equal(calendar.createdEvents[0].title, "병원 예약");
+  assert.equal(calendar.createdEvents[0].startsAt.toISOString(), "2026-07-13T06:00:00.000Z");
+  assert.deepEqual(result.calendar, {
+    status: "created",
+    provider: "google",
+    externalEventId: "google-event-1",
+    url: "https://calendar.google.com/event?eid=1"
+  });
+});
 
+test("ScheduleService requires Google Calendar for schedule writes and reads", async () => {
+  const service = new ScheduleService();
+
+  await assert.rejects(
+    service.addEvent({
+      ownerUserId: "user-1",
+      discordGuildId: "guild-1",
+      discordChannelId: "channel-1",
+      title: "병원 예약",
+      localDate: "2026-07-13",
+      localTime: "15:00",
+      timezone: "Asia/Seoul"
+    }),
+    /Google Calendar 설정/
+  );
+  await assert.rejects(
+    service.buildBriefing({
+      mode: "daily",
+      date: "2026-07-13",
+      timezone: "Asia/Seoul"
+    }),
+    /Google Calendar 설정/
+  );
+});
+
+test("ScheduleService builds briefings from Google Calendar only", async () => {
+  const calendar = new FakeCalendarEventClient([
+    {
+      provider: "google",
+      externalEventId: "google-event-1",
+      title: "병원 예약",
+      startsAt: new Date("2026-07-13T06:00:00.000Z"),
+      timezone: "Asia/Seoul",
+      notes: "신분증 챙기기"
+    }
+  ]);
+  const service = new ScheduleService(calendar, calendar);
   const briefing = await service.buildBriefing({
     mode: "daily",
     date: "2026-07-13",
@@ -409,14 +453,15 @@ test("ScheduleService stores KST schedule events and builds daily briefings", as
 
   assert.equal(briefing.shouldSend, true);
   assert.equal(briefing.eventCount, 1);
+  assert.equal(briefing.calendarEventCount, 1);
+  assert.equal(calendar.lastRange?.startsAtFrom.toISOString(), "2026-07-12T15:00:00.000Z");
+  assert.equal(calendar.lastRange?.startsAtTo.toISOString(), "2026-07-13T15:00:00.000Z");
   assert.match(briefing.discordMessage, /오늘의 일정 \(2026-07-13\)/);
   assert.match(briefing.discordMessage, /1\. 2026-07-13 15:00 병원 예약 - 신분증 챙기기/);
 });
 
-test("ScheduleService reads Google Calendar events and deduplicates linked DB events", async () => {
-  const repository = new FakeScheduleRepository();
-  const calendarSink = new FakeCalendarEventSink();
-  const calendarSource = new FakeCalendarEventSource([
+test("ScheduleService reads direct Google Calendar events for monthly briefings", async () => {
+  const calendar = new FakeCalendarEventClient([
     {
       provider: "google",
       externalEventId: "google-event-1",
@@ -433,17 +478,7 @@ test("ScheduleService reads Google Calendar events and deduplicates linked DB ev
       notes: "Google Calendar 원본"
     }
   ]);
-  const service = new ScheduleService(repository, calendarSink, calendarSource);
-
-  await service.addEvent({
-    ownerUserId: "user-1",
-    discordGuildId: "guild-1",
-    discordChannelId: "channel-1",
-    title: "DB에 저장된 회의",
-    localDate: "2026-07-14",
-    localTime: "10:30",
-    timezone: "Asia/Seoul"
-  });
+  const service = new ScheduleService(calendar, calendar);
 
   const briefing = await service.buildBriefing({
     mode: "monthly",
@@ -452,13 +487,12 @@ test("ScheduleService reads Google Calendar events and deduplicates linked DB ev
     timezone: "Asia/Seoul"
   });
 
-  assert.equal(calendarSource.lastRange?.startsAtFrom.toISOString(), "2026-06-30T15:00:00.000Z");
-  assert.equal(calendarSource.lastRange?.startsAtTo.toISOString(), "2026-07-31T15:00:00.000Z");
+  assert.equal(calendar.lastRange?.startsAtFrom.toISOString(), "2026-06-30T15:00:00.000Z");
+  assert.equal(calendar.lastRange?.startsAtTo.toISOString(), "2026-07-31T15:00:00.000Z");
   assert.equal(briefing.eventCount, 2);
   assert.equal(briefing.calendarEventCount, 2);
   assert.match(briefing.discordMessage, /1\. 2026-07-14 11:00 Google에서 수정한 회의/);
   assert.match(briefing.discordMessage, /2\. 2026-07-20 10:00 캘린더에 직접 넣은 일정 - Google Calendar 원본/);
-  assert.doesNotMatch(briefing.discordMessage, /DB에 저장된 회의/);
 });
 
 test("parseScheduleQuery detects Korean schedule lookup requests", () => {
@@ -481,28 +515,6 @@ test("parseScheduleQuery detects Korean schedule lookup requests", () => {
     date: "2026-07-16"
   });
   assert.deepEqual(parseScheduleQuery("일정 추가하고 싶어", now), undefined);
-});
-
-test("ScheduleService syncs created events to Google Calendar when configured", async () => {
-  const repository = new FakeScheduleRepository();
-  const calendar = new FakeCalendarEventSink();
-  const service = new ScheduleService(repository, calendar);
-  const result = await service.addEvent({
-    ownerUserId: "user-1",
-    discordGuildId: "guild-1",
-    discordChannelId: "any-channel",
-    title: "팀 회의",
-    localDate: "2026-07-14",
-    localTime: "10:30",
-    timezone: "Asia/Seoul"
-  });
-
-  assert.equal(calendar.createdEvents.length, 1);
-  assert.equal(calendar.createdEvents[0].title, "팀 회의");
-  assert.equal(result.calendar.status, "created");
-  assert.equal(result.event.externalCalendarProvider, "google");
-  assert.equal(result.event.externalCalendarEventId, "google-event-1");
-  assert.equal(result.event.externalCalendarUrl, "https://calendar.google.com/event?eid=1");
 });
 
 class FakeEmbeddingProvider implements EmbeddingProvider {
@@ -568,68 +580,11 @@ class FakeChatHistoryRepository implements ChatHistoryRepository {
   }
 }
 
-class FakeScheduleRepository implements ScheduleRepository {
-  readonly events: ScheduleEvent[] = [];
-
-  async createEvent(draft: ScheduleEventDraft): Promise<ScheduleEvent> {
-    const event: ScheduleEvent = {
-      id: `schedule-${this.events.length + 1}`,
-      ownerUserId: draft.ownerUserId,
-      discordGuildId: draft.discordGuildId,
-      discordChannelId: draft.discordChannelId,
-      title: draft.title,
-      startsAt: draft.startsAt,
-      timezone: draft.timezone,
-      notes: draft.notes,
-      status: "active",
-      createdAt: new Date("2026-07-10T00:00:00.000Z"),
-      updatedAt: new Date("2026-07-10T00:00:00.000Z")
-    };
-
-    this.events.push(event);
-    return event;
-  }
-
-  async attachExternalCalendarEvent(
-    id: string,
-    link: {
-      provider: "google";
-      externalEventId: string;
-      url?: string;
-    }
-  ): Promise<ScheduleEvent> {
-    const index = this.events.findIndex((event) => event.id === id);
-
-    if (index < 0) {
-      throw new Error(`Schedule event not found: ${id}`);
-    }
-
-    const updated: ScheduleEvent = {
-      ...this.events[index],
-      externalCalendarProvider: link.provider,
-      externalCalendarEventId: link.externalEventId,
-      externalCalendarUrl: link.url,
-      updatedAt: new Date("2026-07-10T00:01:00.000Z")
-    };
-    this.events[index] = updated;
-    return updated;
-  }
-
-  async listEvents(range: ScheduleEventRange): Promise<readonly ScheduleEvent[]> {
-    return this.events.filter(
-      (event) =>
-        (range.discordGuildId
-          ? event.discordGuildId === range.discordGuildId
-          : event.discordChannelId === range.discordChannelId) &&
-        event.status === (range.status ?? "active") &&
-        event.startsAt >= range.startsAtFrom &&
-        event.startsAt < range.startsAtTo
-    );
-  }
-}
-
-class FakeCalendarEventSink implements CalendarEventSink {
+class FakeCalendarEventClient implements CalendarEventSink, CalendarEventSource {
   readonly createdEvents: CalendarEventDraft[] = [];
+  lastRange?: CalendarEventRange;
+
+  constructor(private readonly events: readonly CalendarEvent[] = []) {}
 
   async createEvent(draft: CalendarEventDraft): Promise<CreatedCalendarEvent> {
     this.createdEvents.push(draft);
@@ -640,12 +595,6 @@ class FakeCalendarEventSink implements CalendarEventSink {
       url: "https://calendar.google.com/event?eid=1"
     };
   }
-}
-
-class FakeCalendarEventSource implements CalendarEventSource {
-  lastRange?: CalendarEventRange;
-
-  constructor(private readonly events: readonly CalendarEvent[]) {}
 
   async listEvents(range: CalendarEventRange): Promise<readonly CalendarEvent[]> {
     this.lastRange = range;

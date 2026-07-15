@@ -90,7 +90,7 @@ test("local runtime ignores non-mentioned Discord messages", async () => {
   });
 });
 
-test("runtime answers schedule mentions from the schedule store before LLM", async () => {
+test("runtime answers schedule mentions from Google Calendar before LLM", async () => {
   let briefingInput:
     | {
         mode: "daily" | "monthly";

@@ -10,6 +10,7 @@
     "dev": "pnpm build && node --env-file-if-exists=.env dist/src/runtime/main.js",
     "start": "node --env-file-if-exists=.env dist/src/runtime/main.js",
     "db:migrate": "node --env-file-if-exists=.env scripts/run-migrations.mjs",
+    "schedule:migrate:google": "node --env-file-if-exists=.env scripts/migrate-schedules-to-google-calendar.mjs",
     "discord:commands:sync": "node --env-file-if-exists=.env scripts/sync-discord-commands.mjs",
     "n8n:sync": "node --env-file-if-exists=.env scripts/sync-n8n-workflows.mjs",
     "logs": "node --env-file-if-exists=.env scripts/tail-llm-log.mjs",

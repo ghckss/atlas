@@ -96,7 +96,14 @@ pnpm discord:commands:sync
 
 뉴스 브리핑 workflow는 매일 10:00 Asia/Seoul에 실행되며, `HERMES_NEWS_COLLECTION_URL`에서 article 목록을 가져온 뒤 Hermes webhook으로 요약을 위임합니다.
 
-일정 기능은 `/일정` slash command로 모달을 열어 저장한다. `GOOGLE_CALENDAR_ENABLED=true`이면 등록된 일정을 Google Calendar에도 생성하고, 자연어 일정 조회와 n8n 일정 브리핑은 Google Calendar의 실제 이벤트를 읽어 PostgreSQL 일정과 병합한다. 일정 브리핑 workflow는 매일 10:00에 당일 일정을, 매월 1일 10:00에 해당 월 전체 일정을 Discord로 전송한다.
+일정 기능은 Google Calendar를 원본으로 사용한다. `GOOGLE_CALENDAR_ENABLED=true`가 필요하며, `/일정` slash command는 모달 입력을 Google Calendar에 직접 저장한다. 자연어 일정 조회와 n8n 일정 브리핑도 Google Calendar의 실제 이벤트를 읽는다. 일정 브리핑 workflow는 매일 10:00에 당일 일정을, 매월 1일 10:00에 해당 월 전체 일정을 Discord로 전송한다.
+
+기존 PostgreSQL `schedule_events` 데이터가 있다면 Google Calendar로 1회 마이그레이션한다.
+
+```bash
+pnpm schedule:migrate:google -- --dry-run
+pnpm schedule:migrate:google
+```
 
 뉴스는 기본적으로 `NEWS_PROVIDERS=google-news-top`을 사용해 Google News Top Stories를 수집합니다. 관심 키워드 검색을 추가하려면 `NEWS_PROVIDERS=google-news-top,naver-news`와 `NEWS_QUERY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`을 설정합니다. `NEWS_SOURCE_URLS`는 수동 JSON/RSS source를 추가할 때만 사용합니다.
 

@@ -13,10 +13,7 @@ import {
   type ModalSubmitInteraction,
   type Message
 } from "discord.js";
-import {
-  formatLocalDateTime,
-  type ScheduleCalendarSyncResult
-} from "../../application";
+import { formatLocalDateTime } from "../../application";
 import type { Role } from "../../domain";
 import { handleSlashCommand } from "../../interfaces";
 import type { RuntimeConfig } from "../config/runtime-config";
@@ -142,6 +139,10 @@ export function formatDiscordGatewayErrorReply(error: unknown): string {
 
   if (message.includes("Codex CLI request failed")) {
     return "현재 Codex CLI 호출 중 오류가 발생했습니다. 서버 로그와 `pnpm logs` 출력을 확인해주세요.";
+  }
+
+  if (message.includes("Google Calendar")) {
+    return "일정 기능은 Google Calendar 설정이 필요합니다. `.env`의 Google Calendar OAuth 설정을 확인해주세요.";
   }
 
   return "요청을 처리하는 중 오류가 발생했습니다. 서버 로그를 확인해주세요.";
@@ -442,7 +443,9 @@ async function handleGatewayModalSubmit(
         `제목: ${event.title}`,
         `시간: ${local.date} ${local.time} ${event.timezone}`,
         event.notes ? `메모: ${event.notes}` : undefined,
-        formatCalendarSyncMessage(result.calendar)
+        result.calendar.url
+          ? `Google Calendar: 저장됨 (${result.calendar.url})`
+          : "Google Calendar: 저장됨"
       ]
         .filter(Boolean)
         .join("\n")
@@ -453,22 +456,6 @@ async function handleGatewayModalSubmit(
       content: error instanceof Error ? error.message : "일정 저장에 실패했습니다."
     });
   }
-}
-
-function formatCalendarSyncMessage(
-  calendar: ScheduleCalendarSyncResult
-): string | undefined {
-  if (calendar.status === "disabled") {
-    return undefined;
-  }
-
-  if (calendar.status === "created") {
-    return calendar.url
-      ? `Google Calendar: 저장됨 (${calendar.url})`
-      : "Google Calendar: 저장됨";
-  }
-
-  return `Google Calendar: 저장 실패 (${calendar.errorMessage})`;
 }
 
 function modalRow(
