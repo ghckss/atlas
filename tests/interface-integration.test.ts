@@ -459,14 +459,15 @@ test("schedule briefing webhook validates secret and delegates schedule summary"
       async buildBriefing(input: ScheduleBriefingRequest) {
         return {
           shouldSend: true,
-          discordMessage: `${input.mode}:${input.date}:${input.discordChannelId}`,
-          discordMessages: [`${input.mode}:${input.date}:${input.discordChannelId}`],
+          discordMessage: `${input.mode}:${input.date}:${input.discordGuildId}:${input.discordChannelId}`,
+          discordMessages: [`${input.mode}:${input.date}:${input.discordGuildId}:${input.discordChannelId}`],
           eventCount: 1
         };
       }
     } as unknown as ScheduleService,
     "secret",
     {
+      discordGuildId: "guild-1",
       discordChannelId: "schedule-channel",
       timezone: "Asia/Seoul"
     }
@@ -500,8 +501,8 @@ test("schedule briefing webhook validates secret and delegates schedule summary"
     status: 200,
     body: {
       shouldSend: true,
-      discordMessage: "monthly:2026-07-01:schedule-channel",
-      discordMessages: ["monthly:2026-07-01:schedule-channel"],
+      discordMessage: "monthly:2026-07-01:guild-1:schedule-channel",
+      discordMessages: ["monthly:2026-07-01:guild-1:schedule-channel"],
       eventCount: 1
     }
   });
@@ -515,6 +516,11 @@ test("schedule briefing workflow declares automation and Discord delivery", () =
   assert.ok(
     scheduleBriefingWorkflow.environmentVariables.includes(
       "HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL"
+    )
+  );
+  assert.ok(
+    scheduleBriefingWorkflow.environmentVariables.includes(
+      "GOOGLE_CALENDAR_REFRESH_TOKEN"
     )
   );
   const workflow = JSON.parse(

@@ -15,8 +15,11 @@ import {
 } from "../src";
 import type {
   AppendChatMessageInput,
+  CalendarEventDraft,
+  CalendarEventSink,
   ChatHistoryRepository,
   ChatMessage,
+  CreatedCalendarEvent,
   EmbeddingInput,
   EmbeddingProvider,
   EmbeddingVector,
@@ -378,8 +381,9 @@ test("HermesChatService records conversation and returns pipeline output", async
 test("ScheduleService stores KST schedule events and builds daily briefings", async () => {
   const repository = new FakeScheduleRepository();
   const service = new ScheduleService(repository);
-  const event = await service.addEvent({
+  const result = await service.addEvent({
     ownerUserId: "user-1",
+    discordGuildId: "guild-1",
     discordChannelId: "channel-1",
     title: "병원 예약",
     localDate: "2026-07-13",
@@ -387,13 +391,15 @@ test("ScheduleService stores KST schedule events and builds daily briefings", as
     timezone: "Asia/Seoul",
     notes: "신분증 챙기기"
   });
+  const event = result.event;
 
   assert.equal(event.startsAt.toISOString(), "2026-07-13T06:00:00.000Z");
+  assert.deepEqual(result.calendar, { status: "disabled" });
 
   const briefing = await service.buildBriefing({
     mode: "daily",
     date: "2026-07-13",
-    discordChannelId: "channel-1",
+    discordGuildId: "guild-1",
     timezone: "Asia/Seoul"
   });
 
@@ -401,6 +407,28 @@ test("ScheduleService stores KST schedule events and builds daily briefings", as
   assert.equal(briefing.eventCount, 1);
   assert.match(briefing.discordMessage, /오늘의 일정 \(2026-07-13\)/);
   assert.match(briefing.discordMessage, /1\. 2026-07-13 15:00 병원 예약 - 신분증 챙기기/);
+});
+
+test("ScheduleService syncs created events to Google Calendar when configured", async () => {
+  const repository = new FakeScheduleRepository();
+  const calendar = new FakeCalendarEventSink();
+  const service = new ScheduleService(repository, calendar);
+  const result = await service.addEvent({
+    ownerUserId: "user-1",
+    discordGuildId: "guild-1",
+    discordChannelId: "any-channel",
+    title: "팀 회의",
+    localDate: "2026-07-14",
+    localTime: "10:30",
+    timezone: "Asia/Seoul"
+  });
+
+  assert.equal(calendar.createdEvents.length, 1);
+  assert.equal(calendar.createdEvents[0].title, "팀 회의");
+  assert.equal(result.calendar.status, "created");
+  assert.equal(result.event.externalCalendarProvider, "google");
+  assert.equal(result.event.externalCalendarEventId, "google-event-1");
+  assert.equal(result.event.externalCalendarUrl, "https://calendar.google.com/event?eid=1");
 });
 
 class FakeEmbeddingProvider implements EmbeddingProvider {
@@ -488,14 +516,55 @@ class FakeScheduleRepository implements ScheduleRepository {
     return event;
   }
 
+  async attachExternalCalendarEvent(
+    id: string,
+    link: {
+      provider: "google";
+      externalEventId: string;
+      url?: string;
+    }
+  ): Promise<ScheduleEvent> {
+    const index = this.events.findIndex((event) => event.id === id);
+
+    if (index < 0) {
+      throw new Error(`Schedule event not found: ${id}`);
+    }
+
+    const updated: ScheduleEvent = {
+      ...this.events[index],
+      externalCalendarProvider: link.provider,
+      externalCalendarEventId: link.externalEventId,
+      externalCalendarUrl: link.url,
+      updatedAt: new Date("2026-07-10T00:01:00.000Z")
+    };
+    this.events[index] = updated;
+    return updated;
+  }
+
   async listEvents(range: ScheduleEventRange): Promise<readonly ScheduleEvent[]> {
     return this.events.filter(
       (event) =>
-        event.discordChannelId === range.discordChannelId &&
+        (range.discordGuildId
+          ? event.discordGuildId === range.discordGuildId
+          : event.discordChannelId === range.discordChannelId) &&
         event.status === (range.status ?? "active") &&
         event.startsAt >= range.startsAtFrom &&
         event.startsAt < range.startsAtTo
     );
+  }
+}
+
+class FakeCalendarEventSink implements CalendarEventSink {
+  readonly createdEvents: CalendarEventDraft[] = [];
+
+  async createEvent(draft: CalendarEventDraft): Promise<CreatedCalendarEvent> {
+    this.createdEvents.push(draft);
+
+    return {
+      provider: "google",
+      externalEventId: `google-event-${this.createdEvents.length}`,
+      url: "https://calendar.google.com/event?eid=1"
+    };
   }
 }
 

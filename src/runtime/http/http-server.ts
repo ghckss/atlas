@@ -77,6 +77,7 @@ export async function handleRuntimeHttpRequest(
       runtime.schedule,
       config.n8n.webhookSecret,
       {
+        discordGuildId: config.discord.guildId,
         discordChannelId: config.schedule.briefingDiscordChannelId,
         timezone: config.schedule.timezone
       }

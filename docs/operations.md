@@ -37,6 +37,12 @@
 - `HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL`
 - `SCHEDULE_TIMEZONE`
 - `SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID`
+- `GOOGLE_CALENDAR_ENABLED`
+- `GOOGLE_CALENDAR_ID`
+- `GOOGLE_CALENDAR_CLIENT_ID`
+- `GOOGLE_CALENDAR_CLIENT_SECRET`
+- `GOOGLE_CALENDAR_REFRESH_TOKEN`
+- `GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES`
 - `NEWS_PROVIDERS`
 - `NEWS_QUERY`
 - `NEWS_GOOGLE_LANGUAGE`
@@ -56,6 +62,7 @@
 - DM은 Owner 개인 작업이나 민감한 응답에 한해 제한적으로 처리한다.
 - 설정 변경과 시스템 변경은 Owner 권한으로 제한한다.
 - `/일정` slash command는 일정 추가 모달을 열고, 입력된 일정은 PostgreSQL에 저장한다.
+- `GOOGLE_CALENDAR_ENABLED=true`이면 `/일정` 등록 후 Google Calendar에도 같은 일정을 생성한다.
 
 Discord slash command를 등록하거나 갱신하려면 다음 명령을 실행한다. `DISCORD_GUILD_ID`가 있으면 해당 서버에만 빠르게 반영하고, 없으면 global command로 등록한다.
 
@@ -144,6 +151,21 @@ pnpm n8n:sync
 뉴스 브리핑의 `Send Discord` 노드는 n8n Discord credential을 사용하지 않는다. `DISCORD_BOT_TOKEN`과 `NEWS_BRIEFING_DISCORD_CHANNEL_ID`는 sync 시점에 workflow payload로 주입되며 Discord REST API 호출에 사용된다. `Prepare Discord Message` 노드는 빈 메시지를 걸러내고 Discord 2000자 제한을 재확인하며, `Send Discord`는 raw JSON body로 `{ content, flags, allowed_mentions }`를 전송한다. `flags=4`는 링크 embed preview를 억제한다. 추가 메시지가 있으면 `Create Discord Thread`가 첫 메시지 아래 thread를 만들고 `Send Thread Message`가 나머지를 전송한다.
 
 일정 브리핑 workflow는 매일 10:00 Asia/Seoul에 `HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL`을 호출한다. 매월 1일에는 월간 일정 요청도 함께 생성한다. Discord 전송에 필요한 `SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID`와 `DISCORD_BOT_TOKEN`도 sync 시점에 workflow payload로 주입된다. 일정 전용 env가 없으면 sync 스크립트는 `HERMES_NEWS_BRIEFING_WEBHOOK_URL`의 `/webhooks/news-briefing` 경로를 `/webhooks/schedule-briefing`으로 바꾸고, `NEWS_BRIEFING_DISCORD_CHANNEL_ID`를 일정 채널 fallback으로 사용한다.
+
+## Google Calendar 운영
+
+Google Calendar 연동은 기본 비활성화 상태이다. 활성화하려면 Google Cloud OAuth Client를 만들고 Calendar API를 활성화한 뒤 `https://www.googleapis.com/auth/calendar.events` scope로 refresh token을 발급받아 설정한다.
+
+```env
+GOOGLE_CALENDAR_ENABLED=true
+GOOGLE_CALENDAR_ID=primary
+GOOGLE_CALENDAR_CLIENT_ID=...
+GOOGLE_CALENDAR_CLIENT_SECRET=...
+GOOGLE_CALENDAR_REFRESH_TOKEN=...
+GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES=60
+```
+
+`/일정` 모달에는 종료 시간이 없으므로 Google Calendar event의 종료 시간은 `GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES`로 계산한다. Google Calendar 생성에 실패해도 PostgreSQL 일정 저장은 유지되며, Discord 모달 응답에 Calendar 저장 실패 메시지를 표시한다.
 
 ## 검증
 

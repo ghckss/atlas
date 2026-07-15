@@ -19,6 +19,12 @@ test("runtime config loads required local MVP settings", () => {
     NEWS_QUERY: "AI agent",
     SCHEDULE_TIMEZONE: "Asia/Seoul",
     SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID: "schedule-channel",
+    GOOGLE_CALENDAR_ENABLED: "true",
+    GOOGLE_CALENDAR_ID: "primary",
+    GOOGLE_CALENDAR_CLIENT_ID: "google-client",
+    GOOGLE_CALENDAR_CLIENT_SECRET: "google-secret",
+    GOOGLE_CALENDAR_REFRESH_TOKEN: "google-refresh",
+    GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES: "45",
     LLM_PROVIDER: "openai",
     LLM_LOG_FILE: "logs/custom-llm.log",
     OPENAI_API_KEY: "openai-key",
@@ -51,6 +57,12 @@ test("runtime config loads required local MVP settings", () => {
   assert.equal(config.n8n.apiKey, "n8n-key");
   assert.equal(config.schedule.timezone, "Asia/Seoul");
   assert.equal(config.schedule.briefingDiscordChannelId, "schedule-channel");
+  assert.equal(config.calendar.googleEnabled, true);
+  assert.equal(config.calendar.googleCalendarId, "primary");
+  assert.equal(config.calendar.googleClientId, "google-client");
+  assert.equal(config.calendar.googleClientSecret, "google-secret");
+  assert.equal(config.calendar.googleRefreshToken, "google-refresh");
+  assert.equal(config.calendar.googleDefaultEventDurationMinutes, 45);
   assert.equal(config.mem0.apiKey, "mem0-key");
   assert.equal(config.mem0.baseUrl, "https://mem0.example");
   assert.equal(config.llm.provider, "openai");
@@ -95,6 +107,9 @@ test("runtime config defaults news collection to Google News top stories", () =>
   assert.equal(config.news.maxArticles, 10);
   assert.equal(config.schedule.timezone, "Asia/Seoul");
   assert.equal(config.schedule.briefingDiscordChannelId, "channel-1");
+  assert.equal(config.calendar.googleEnabled, false);
+  assert.equal(config.calendar.googleCalendarId, "primary");
+  assert.equal(config.calendar.googleDefaultEventDurationMinutes, 60);
   assert.equal(config.llm.provider, "template");
   assert.equal(config.llm.logFilePath, "logs/llm-runtime.log");
   assert.equal(config.llm.openaiModel, "gpt-5.6");
@@ -155,6 +170,18 @@ test("runtime config rejects invalid port and missing secrets", () => {
         LLM_PROVIDER: "unknown"
       }),
     /LLM_PROVIDER/
+  );
+  assert.throws(
+    () =>
+      loadRuntimeConfig({
+        DISCORD_BOT_USER_ID: "bot-1",
+        DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
+        N8N_WEBHOOK_SECRET: "secret",
+        GOOGLE_CALENDAR_ENABLED: "true",
+        GOOGLE_CALENDAR_CLIENT_ID: "google-client",
+        GOOGLE_CALENDAR_CLIENT_SECRET: "google-secret"
+      }),
+    /GOOGLE_CALENDAR_REFRESH_TOKEN/
   );
   assert.throws(
     () =>

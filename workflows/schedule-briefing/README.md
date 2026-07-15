@@ -13,7 +13,8 @@
 ## 입력
 
 - `HERMES_SCHEDULE_BRIEFING_WEBHOOK_URL`: Hermes runtime의 일정 브리핑 webhook
-- `SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID`: 일정이 저장되고 브리핑이 전송될 Discord 채널 ID
+- `DISCORD_GUILD_ID`: 브리핑 대상 일정을 조회할 Discord 서버 ID
+- `SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID`: 브리핑 메시지를 전송할 Discord 채널 ID
 - `N8N_WEBHOOK_SECRET`: Hermes webhook 인증 헤더
 
 ## 출력
@@ -23,6 +24,10 @@
 - Discord 링크 embed preview는 `flags=4`로 억제한다.
 
 ## 환경변수
+
+Hermes runtime에서 브리핑 조회 scope로 사용하는 값:
+
+- `DISCORD_GUILD_ID`
 
 `pnpm n8n:sync` 실행 시 workflow payload에 주입되는 값:
 
@@ -47,6 +52,6 @@ Git에 저장된 JSON export는 `{{ENV:NAME}}` placeholder를 사용한다. 이 
 ## 장애 대응
 
 - Hermes webhook이 `401`을 반환하면 `N8N_WEBHOOK_SECRET` 값을 확인한다.
-- Hermes webhook이 `400`을 반환하면 workflow의 `mode`, `date`, `discordChannelId` payload를 확인한다.
+- Hermes webhook이 `400`을 반환하면 workflow의 `mode`, `date`, `discordGuildId` payload를 확인한다.
 - Discord 전송 `Authorization failed`는 `DISCORD_BOT_TOKEN` 값을 확인한다.
 - Discord 전송 권한 실패는 `SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID`와 봇의 채널 권한을 확인한다.

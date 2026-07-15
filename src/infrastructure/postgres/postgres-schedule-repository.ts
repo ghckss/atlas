@@ -5,6 +5,7 @@ import type {
   ScheduleEvent,
   ScheduleEventDraft,
   ScheduleEventRange,
+  ScheduleExternalCalendarLink,
   ScheduleEventStatus
 } from "../../domain";
 
@@ -49,19 +50,45 @@ export class PostgresScheduleRepository implements ScheduleRepository {
     return toScheduleEvent(result.rows[0]);
   }
 
+  async attachExternalCalendarEvent(
+    id: string,
+    link: ScheduleExternalCalendarLink
+  ): Promise<ScheduleEvent> {
+    const result = await this.pool.query<ScheduleEventRow>(
+      `
+        UPDATE schedule_events
+        SET
+          external_calendar_provider = $2,
+          external_calendar_event_id = $3,
+          external_calendar_url = $4,
+          updated_at = now()
+        WHERE id = $1
+        RETURNING *
+      `,
+      [id, link.provider, link.externalEventId, link.url ?? null]
+    );
+
+    if (!result.rows[0]) {
+      throw new Error(`Schedule event not found: ${id}`);
+    }
+
+    return toScheduleEvent(result.rows[0]);
+  }
+
   async listEvents(range: ScheduleEventRange): Promise<readonly ScheduleEvent[]> {
+    const scope = toScheduleScope(range);
     const result = await this.pool.query<ScheduleEventRow>(
       `
         SELECT *
         FROM schedule_events
-        WHERE discord_channel_id = $1
+        WHERE ${scope.condition}
           AND starts_at >= $2
           AND starts_at < $3
           AND status = $4
         ORDER BY starts_at ASC, created_at ASC
       `,
       [
-        range.discordChannelId,
+        scope.value,
         range.startsAtFrom,
         range.startsAtTo,
         range.status ?? "active"
@@ -82,6 +109,9 @@ interface ScheduleEventRow extends QueryResultRow {
   timezone: string;
   notes: string | null;
   status: ScheduleEventStatus;
+  external_calendar_provider: "google" | null;
+  external_calendar_event_id: string | null;
+  external_calendar_url: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -97,7 +127,31 @@ function toScheduleEvent(row: ScheduleEventRow): ScheduleEvent {
     timezone: row.timezone,
     notes: row.notes ?? undefined,
     status: row.status,
+    externalCalendarProvider: row.external_calendar_provider ?? undefined,
+    externalCalendarEventId: row.external_calendar_event_id ?? undefined,
+    externalCalendarUrl: row.external_calendar_url ?? undefined,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at)
   };
+}
+
+function toScheduleScope(range: ScheduleEventRange): {
+  condition: string;
+  value: string;
+} {
+  if (range.discordGuildId) {
+    return {
+      condition: "discord_guild_id = $1",
+      value: range.discordGuildId
+    };
+  }
+
+  if (range.discordChannelId) {
+    return {
+      condition: "discord_channel_id = $1",
+      value: range.discordChannelId
+    };
+  }
+
+  throw new Error("Schedule event range requires a Discord guild or channel scope.");
 }

@@ -12,7 +12,10 @@ import {
   type ModalSubmitInteraction,
   type Message
 } from "discord.js";
-import { formatLocalDateTime } from "../../application";
+import {
+  formatLocalDateTime,
+  type ScheduleCalendarSyncResult
+} from "../../application";
 import type { Role } from "../../domain";
 import { handleSlashCommand } from "../../interfaces";
 import type { RuntimeConfig } from "../config/runtime-config";
@@ -326,7 +329,7 @@ async function handleGatewayModalSubmit(
       throw new Error("일정을 저장할 Discord 채널을 확인할 수 없습니다.");
     }
 
-    const event = await runtime.schedule.addEvent({
+    const result = await runtime.schedule.addEvent({
       ownerUserId: interaction.user.id,
       discordGuildId: interaction.guildId ?? undefined,
       discordChannelId: channelId,
@@ -336,6 +339,7 @@ async function handleGatewayModalSubmit(
       notes: readOptionalModalValue(interaction, "notes"),
       timezone: config.schedule.timezone
     });
+    const event = result.event;
     const local = formatLocalDateTime(event.startsAt, event.timezone);
 
     await interaction.reply({
@@ -345,7 +349,8 @@ async function handleGatewayModalSubmit(
         "",
         `제목: ${event.title}`,
         `시간: ${local.date} ${local.time} ${event.timezone}`,
-        event.notes ? `메모: ${event.notes}` : undefined
+        event.notes ? `메모: ${event.notes}` : undefined,
+        formatCalendarSyncMessage(result.calendar)
       ]
         .filter(Boolean)
         .join("\n")
@@ -356,6 +361,22 @@ async function handleGatewayModalSubmit(
       content: error instanceof Error ? error.message : "일정 저장에 실패했습니다."
     });
   }
+}
+
+function formatCalendarSyncMessage(
+  calendar: ScheduleCalendarSyncResult
+): string | undefined {
+  if (calendar.status === "disabled") {
+    return undefined;
+  }
+
+  if (calendar.status === "created") {
+    return calendar.url
+      ? `Google Calendar: 저장됨 (${calendar.url})`
+      : "Google Calendar: 저장됨";
+  }
+
+  return `Google Calendar: 저장 실패 (${calendar.errorMessage})`;
 }
 
 function modalRow(

@@ -37,6 +37,14 @@ export interface RuntimeConfig {
     timezone: string;
     briefingDiscordChannelId: string;
   };
+  calendar: {
+    googleEnabled: boolean;
+    googleCalendarId: string;
+    googleClientId?: string;
+    googleClientSecret?: string;
+    googleRefreshToken?: string;
+    googleDefaultEventDurationMinutes: number;
+  };
   mem0: {
     apiKey?: string;
     baseUrl?: string;
@@ -109,10 +117,34 @@ export function loadRuntimeConfig(
       timezone: env.SCHEDULE_TIMEZONE ?? "Asia/Seoul",
       briefingDiscordChannelId:
         env.SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID ??
+        env.NEWS_BRIEFING_DISCORD_CHANNEL_ID ??
         requireValue(
           env.DISCORD_DEDICATED_CHANNEL_ID,
           "DISCORD_DEDICATED_CHANNEL_ID"
         )
+    },
+    calendar: {
+      googleEnabled: parseBoolean(env.GOOGLE_CALENDAR_ENABLED),
+      googleCalendarId: parseOptionalText(env.GOOGLE_CALENDAR_ID) ?? "primary",
+      googleClientId: parseGoogleCalendarSecret(
+        env.GOOGLE_CALENDAR_CLIENT_ID,
+        "GOOGLE_CALENDAR_CLIENT_ID",
+        env.GOOGLE_CALENDAR_ENABLED
+      ),
+      googleClientSecret: parseGoogleCalendarSecret(
+        env.GOOGLE_CALENDAR_CLIENT_SECRET,
+        "GOOGLE_CALENDAR_CLIENT_SECRET",
+        env.GOOGLE_CALENDAR_ENABLED
+      ),
+      googleRefreshToken: parseGoogleCalendarSecret(
+        env.GOOGLE_CALENDAR_REFRESH_TOKEN,
+        "GOOGLE_CALENDAR_REFRESH_TOKEN",
+        env.GOOGLE_CALENDAR_ENABLED
+      ),
+      googleDefaultEventDurationMinutes: parsePositiveInteger(
+        env.GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES ?? "60",
+        "GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES"
+      )
     },
     mem0: {
       apiKey: env.MEM0_API_KEY,
@@ -218,6 +250,18 @@ function parseOptionalText(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
 
   return trimmed || undefined;
+}
+
+function parseGoogleCalendarSecret(
+  value: string | undefined,
+  name: string,
+  enabled: string | undefined
+): string | undefined {
+  if (enabled !== "true") {
+    return parseOptionalText(value);
+  }
+
+  return requireValue(value, name);
 }
 
 function parseLlmProvider(value: string | undefined): RuntimeConfig["llm"]["provider"] {

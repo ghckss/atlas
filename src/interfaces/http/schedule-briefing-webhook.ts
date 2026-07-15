@@ -6,6 +6,7 @@ import type {
 export interface ScheduleBriefingWebhookBody {
   mode: "daily" | "monthly";
   date?: string;
+  discordGuildId?: string;
   discordChannelId?: string;
 }
 
@@ -13,6 +14,7 @@ export function createScheduleBriefingWebhookHandler(
   service: ScheduleService,
   secret: string,
   defaults: {
+    discordGuildId?: string;
     discordChannelId: string;
     timezone: string;
   }
@@ -48,6 +50,7 @@ export function createScheduleBriefingWebhookHandler(
     const result = await service.buildBriefing({
       mode: body.mode,
       date: body.date ?? todayInSeoul(),
+      discordGuildId: body.discordGuildId ?? defaults.discordGuildId,
       discordChannelId: body.discordChannelId ?? defaults.discordChannelId,
       timezone: defaults.timezone
     });
@@ -64,6 +67,7 @@ function parseBody(body: unknown): ScheduleBriefingWebhookBody | undefined {
   const value = body as {
     mode?: unknown;
     date?: unknown;
+    discordGuildId?: unknown;
     discordChannelId?: unknown;
   };
 
@@ -72,6 +76,13 @@ function parseBody(body: unknown): ScheduleBriefingWebhookBody | undefined {
   }
 
   if (value.date !== undefined && typeof value.date !== "string") {
+    return undefined;
+  }
+
+  if (
+    value.discordGuildId !== undefined &&
+    typeof value.discordGuildId !== "string"
+  ) {
     return undefined;
   }
 
@@ -85,6 +96,7 @@ function parseBody(body: unknown): ScheduleBriefingWebhookBody | undefined {
   return {
     mode: value.mode,
     date: value.date,
+    discordGuildId: value.discordGuildId,
     discordChannelId: value.discordChannelId
   };
 }

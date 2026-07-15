@@ -1,5 +1,5 @@
 import type { ScheduleEvent, ScheduleEventDraft } from "../../domain";
-import type { ScheduleRepository } from "../ports";
+import type { CalendarEventSink, ScheduleRepository } from "../ports";
 
 export interface AddScheduleEventInput {
   ownerUserId: string;
@@ -15,7 +15,8 @@ export interface AddScheduleEventInput {
 export interface ScheduleBriefingRequest {
   mode: "daily" | "monthly";
   date: string;
-  discordChannelId: string;
+  discordGuildId?: string;
+  discordChannelId?: string;
   timezone: string;
 }
 
@@ -26,12 +27,35 @@ export interface ScheduleBriefingResponse {
   eventCount: number;
 }
 
+export interface AddScheduleEventResult {
+  event: ScheduleEvent;
+  calendar: ScheduleCalendarSyncResult;
+}
+
+export type ScheduleCalendarSyncResult =
+  | {
+      status: "disabled";
+    }
+  | {
+      status: "created";
+      provider: "google";
+      externalEventId: string;
+      url?: string;
+    }
+  | {
+      status: "failed";
+      errorMessage: string;
+    };
+
 const DISCORD_MESSAGE_LIMIT = 2000;
 
 export class ScheduleService {
-  constructor(private readonly repository: ScheduleRepository) {}
+  constructor(
+    private readonly repository: ScheduleRepository,
+    private readonly calendarEventSink?: CalendarEventSink
+  ) {}
 
-  async addEvent(input: AddScheduleEventInput): Promise<ScheduleEvent> {
+  async addEvent(input: AddScheduleEventInput): Promise<AddScheduleEventResult> {
     const title = input.title.trim();
 
     if (!title) {
@@ -54,7 +78,49 @@ export class ScheduleService {
       notes
     };
 
-    return this.repository.createEvent(draft);
+    let event = await this.repository.createEvent(draft);
+
+    if (!this.calendarEventSink) {
+      return {
+        event,
+        calendar: {
+          status: "disabled"
+        }
+      };
+    }
+
+    try {
+      const calendarEvent = await this.calendarEventSink.createEvent({
+        sourceId: event.id,
+        title: event.title,
+        startsAt: event.startsAt,
+        timezone: event.timezone,
+        notes: event.notes
+      });
+      event = await this.repository.attachExternalCalendarEvent(event.id, {
+        provider: calendarEvent.provider,
+        externalEventId: calendarEvent.externalEventId,
+        url: calendarEvent.url
+      });
+
+      return {
+        event,
+        calendar: {
+          status: "created",
+          provider: calendarEvent.provider,
+          externalEventId: calendarEvent.externalEventId,
+          url: calendarEvent.url
+        }
+      };
+    } catch (error) {
+      return {
+        event,
+        calendar: {
+          status: "failed",
+          errorMessage: error instanceof Error ? error.message : String(error)
+        }
+      };
+    }
   }
 
   async buildBriefing(
@@ -65,6 +131,7 @@ export class ScheduleService {
         ? localDayRange(request.date, request.timezone)
         : localMonthRange(request.date, request.timezone);
     const events = await this.repository.listEvents({
+      discordGuildId: request.discordGuildId,
       discordChannelId: request.discordChannelId,
       startsAtFrom: range.from,
       startsAtTo: range.to,

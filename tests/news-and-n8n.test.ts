@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { HttpNewsSourceClient, N8nWorkflowClient, parseNewsSourceUrls } from "../src";
+import {
+  GoogleCalendarEventSink,
+  HttpNewsSourceClient,
+  N8nWorkflowClient,
+  parseNewsSourceUrls
+} from "../src";
 
 test("news source client normalizes and deduplicates JSON article payloads", async () => {
   const client = new HttpNewsSourceClient({
@@ -37,6 +42,76 @@ test("news source client normalizes and deduplicates JSON article payloads", asy
       summary: "Short summary"
     }
   ]);
+});
+
+test("GoogleCalendarEventSink creates timed events through OAuth", async () => {
+  const requests: Array<{
+    url: string;
+    init?: RequestInit;
+  }> = [];
+  const sink = new GoogleCalendarEventSink({
+    clientId: "client-id",
+    clientSecret: "client-secret",
+    refreshToken: "refresh-token",
+    calendarId: "primary",
+    defaultDurationMinutes: 45,
+    fetch: async (url, init) => {
+      requests.push({
+        url: String(url),
+        init
+      });
+
+      if (String(url) === "https://oauth2.googleapis.com/token") {
+        return new Response(JSON.stringify({ access_token: "access-token" }), {
+          status: 200
+        });
+      }
+
+      return new Response(
+        JSON.stringify({
+          id: "event-1",
+          htmlLink: "https://calendar.google.com/event?eid=event-1"
+        }),
+        { status: 200 }
+      );
+    }
+  });
+
+  const result = await sink.createEvent({
+    sourceId: "schedule-1",
+    title: "팀 회의",
+    startsAt: new Date("2026-07-14T01:30:00.000Z"),
+    timezone: "Asia/Seoul",
+    notes: "회의실 A"
+  });
+  const tokenBody = String(requests[0].init?.body);
+  const eventBody = JSON.parse(String(requests[1].init?.body));
+
+  assert.equal(requests[0].url, "https://oauth2.googleapis.com/token");
+  assert.match(tokenBody, /grant_type=refresh_token/);
+  assert.match(tokenBody, /refresh_token=refresh-token/);
+  assert.equal(
+    requests[1].url,
+    "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+  );
+  assert.equal(
+    (requests[1].init?.headers as Record<string, string>).authorization,
+    "Bearer access-token"
+  );
+  assert.deepEqual(eventBody.start, {
+    dateTime: "2026-07-14T10:30:00+09:00",
+    timeZone: "Asia/Seoul"
+  });
+  assert.deepEqual(eventBody.end, {
+    dateTime: "2026-07-14T11:15:00+09:00",
+    timeZone: "Asia/Seoul"
+  });
+  assert.equal(eventBody.extendedProperties.private.hermesScheduleEventId, "schedule-1");
+  assert.deepEqual(result, {
+    provider: "google",
+    externalEventId: "event-1",
+    url: "https://calendar.google.com/event?eid=event-1"
+  });
 });
 
 test("news source client collects Google News RSS by query", async () => {

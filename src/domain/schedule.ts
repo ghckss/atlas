@@ -1,5 +1,6 @@
 export const scheduleEventStatuses = ["active", "cancelled"] as const;
 export type ScheduleEventStatus = (typeof scheduleEventStatuses)[number];
+export type ScheduleExternalCalendarProvider = "google";
 
 export interface ScheduleEvent {
   id: string;
@@ -11,6 +12,9 @@ export interface ScheduleEvent {
   timezone: string;
   notes?: string;
   status: ScheduleEventStatus;
+  externalCalendarProvider?: ScheduleExternalCalendarProvider;
+  externalCalendarEventId?: string;
+  externalCalendarUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,8 +30,15 @@ export interface ScheduleEventDraft {
 }
 
 export interface ScheduleEventRange {
-  discordChannelId: string;
+  discordGuildId?: string;
+  discordChannelId?: string;
   startsAtFrom: Date;
   startsAtTo: Date;
   status?: ScheduleEventStatus;
+}
+
+export interface ScheduleExternalCalendarLink {
+  provider: ScheduleExternalCalendarProvider;
+  externalEventId: string;
+  url?: string;
 }

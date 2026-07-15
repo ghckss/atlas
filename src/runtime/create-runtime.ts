@@ -3,12 +3,14 @@ import {
   HermesNewsBriefingService,
   MemoryContextService,
   ScheduleService,
+  type CalendarEventSink,
   type MemoryRepository,
   type ScheduleRepository,
   SoulPipeline,
   TaskPlanner
 } from "../application";
 import {
+  GoogleCalendarEventSink,
   HttpNewsSourceClient,
   Mem0HttpClient,
   Mem0MemoryAdapter,
@@ -37,6 +39,7 @@ export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
   const embeddingProvider = new DeterministicEmbeddingProvider();
   const memoryRepository = createMemoryRepository(config);
   const scheduleRepository = createScheduleRepository(config);
+  const calendarEventSink = createCalendarEventSink(config);
   const memoryContext = new MemoryContextService(
     embeddingProvider,
     memoryRepository
@@ -55,7 +58,7 @@ export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
     newsCollector: new HttpNewsSourceClient({
       timeoutMs: config.news.collectionTimeoutMs
     }),
-    schedule: new ScheduleService(scheduleRepository),
+    schedule: new ScheduleService(scheduleRepository, calendarEventSink),
     discord: {
       botUserId: config.discord.botUserId,
       dedicatedChannelId: config.discord.dedicatedChannelId,
@@ -66,6 +69,20 @@ export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
 
 function createScheduleRepository(config: RuntimeConfig): ScheduleRepository {
   return new PostgresScheduleRepository(config.databaseUrl);
+}
+
+function createCalendarEventSink(config: RuntimeConfig): CalendarEventSink | undefined {
+  if (!config.calendar.googleEnabled) {
+    return undefined;
+  }
+
+  return new GoogleCalendarEventSink({
+    clientId: config.calendar.googleClientId ?? "",
+    clientSecret: config.calendar.googleClientSecret ?? "",
+    refreshToken: config.calendar.googleRefreshToken ?? "",
+    calendarId: config.calendar.googleCalendarId,
+    defaultDurationMinutes: config.calendar.googleDefaultEventDurationMinutes
+  });
 }
 
 function createSoulRuntime(config: RuntimeConfig) {
