@@ -9,14 +9,18 @@ import {
   MemoryContextService,
   CodexCliSoulRuntime,
   OpenAISoulRuntime,
+  parseScheduleQuery,
   ScheduleService,
   SoulPipeline,
   TaskPlanner
 } from "../src";
 import type {
   AppendChatMessageInput,
+  CalendarEvent,
   CalendarEventDraft,
+  CalendarEventRange,
   CalendarEventSink,
+  CalendarEventSource,
   ChatHistoryRepository,
   ChatMessage,
   CreatedCalendarEvent,
@@ -409,6 +413,76 @@ test("ScheduleService stores KST schedule events and builds daily briefings", as
   assert.match(briefing.discordMessage, /1\. 2026-07-13 15:00 병원 예약 - 신분증 챙기기/);
 });
 
+test("ScheduleService reads Google Calendar events and deduplicates linked DB events", async () => {
+  const repository = new FakeScheduleRepository();
+  const calendarSink = new FakeCalendarEventSink();
+  const calendarSource = new FakeCalendarEventSource([
+    {
+      provider: "google",
+      externalEventId: "google-event-1",
+      title: "Google에서 수정한 회의",
+      startsAt: new Date("2026-07-14T02:00:00.000Z"),
+      timezone: "Asia/Seoul"
+    },
+    {
+      provider: "google",
+      externalEventId: "google-event-2",
+      title: "캘린더에 직접 넣은 일정",
+      startsAt: new Date("2026-07-20T01:00:00.000Z"),
+      timezone: "Asia/Seoul",
+      notes: "Google Calendar 원본"
+    }
+  ]);
+  const service = new ScheduleService(repository, calendarSink, calendarSource);
+
+  await service.addEvent({
+    ownerUserId: "user-1",
+    discordGuildId: "guild-1",
+    discordChannelId: "channel-1",
+    title: "DB에 저장된 회의",
+    localDate: "2026-07-14",
+    localTime: "10:30",
+    timezone: "Asia/Seoul"
+  });
+
+  const briefing = await service.buildBriefing({
+    mode: "monthly",
+    date: "2026-07-01",
+    discordGuildId: "guild-1",
+    timezone: "Asia/Seoul"
+  });
+
+  assert.equal(calendarSource.lastRange?.startsAtFrom.toISOString(), "2026-06-30T15:00:00.000Z");
+  assert.equal(calendarSource.lastRange?.startsAtTo.toISOString(), "2026-07-31T15:00:00.000Z");
+  assert.equal(briefing.eventCount, 2);
+  assert.equal(briefing.calendarEventCount, 2);
+  assert.match(briefing.discordMessage, /1\. 2026-07-14 11:00 Google에서 수정한 회의/);
+  assert.match(briefing.discordMessage, /2\. 2026-07-20 10:00 캘린더에 직접 넣은 일정 - Google Calendar 원본/);
+  assert.doesNotMatch(briefing.discordMessage, /DB에 저장된 회의/);
+});
+
+test("parseScheduleQuery detects Korean schedule lookup requests", () => {
+  const now = new Date("2026-07-15T01:00:00.000Z");
+
+  assert.deepEqual(parseScheduleQuery("<@123> 7월 일정 알려줘", now), {
+    mode: "monthly",
+    date: "2026-07-01"
+  });
+  assert.deepEqual(parseScheduleQuery("이번 달 일정 보여줘", now), {
+    mode: "monthly",
+    date: "2026-07-01"
+  });
+  assert.deepEqual(parseScheduleQuery("오늘 일정 확인", now), {
+    mode: "daily",
+    date: "2026-07-15"
+  });
+  assert.deepEqual(parseScheduleQuery("내일 일정 있나?", now), {
+    mode: "daily",
+    date: "2026-07-16"
+  });
+  assert.deepEqual(parseScheduleQuery("일정 추가하고 싶어", now), undefined);
+});
+
 test("ScheduleService syncs created events to Google Calendar when configured", async () => {
   const repository = new FakeScheduleRepository();
   const calendar = new FakeCalendarEventSink();
@@ -565,6 +639,21 @@ class FakeCalendarEventSink implements CalendarEventSink {
       externalEventId: `google-event-${this.createdEvents.length}`,
       url: "https://calendar.google.com/event?eid=1"
     };
+  }
+}
+
+class FakeCalendarEventSource implements CalendarEventSource {
+  lastRange?: CalendarEventRange;
+
+  constructor(private readonly events: readonly CalendarEvent[]) {}
+
+  async listEvents(range: CalendarEventRange): Promise<readonly CalendarEvent[]> {
+    this.lastRange = range;
+    return this.events.filter(
+      (event) =>
+        event.startsAt >= range.startsAtFrom &&
+        event.startsAt < range.startsAtTo
+    );
   }
 }
 

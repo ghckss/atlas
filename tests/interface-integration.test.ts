@@ -461,7 +461,8 @@ test("schedule briefing webhook validates secret and delegates schedule summary"
           shouldSend: true,
           discordMessage: `${input.mode}:${input.date}:${input.discordGuildId}:${input.discordChannelId}`,
           discordMessages: [`${input.mode}:${input.date}:${input.discordGuildId}:${input.discordChannelId}`],
-          eventCount: 1
+          eventCount: 1,
+          calendarEventCount: 0
         };
       }
     } as unknown as ScheduleService,
@@ -503,7 +504,8 @@ test("schedule briefing webhook validates secret and delegates schedule summary"
       shouldSend: true,
       discordMessage: "monthly:2026-07-01:guild-1:schedule-channel",
       discordMessages: ["monthly:2026-07-01:guild-1:schedule-channel"],
-      eventCount: 1
+      eventCount: 1,
+      calendarEventCount: 0
     }
   });
 });

@@ -3,6 +3,7 @@ export * from "./hermes-chat-service";
 export * from "./memory-context-service";
 export * from "./news-briefing-service";
 export * from "./project-file-analysis-service";
+export * from "./schedule-query-service";
 export * from "./schedule-service";
 export * from "./soul-pipeline";
 export * from "./task-planner";

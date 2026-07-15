@@ -1,11 +1,13 @@
 import type { LocalRuntime } from "../create-runtime";
 import { roleFromRuntimeInput } from "../config/runtime-config";
+import { parseScheduleQuery } from "../../application";
 import { routeDiscordMessage } from "../../interfaces";
 
 export interface RuntimeDiscordMessageInput {
   id: string;
   authorId: string;
   channelId: string;
+  guildId?: string;
   content: string;
   isBot?: boolean;
   isDirectMessage?: boolean;
@@ -23,6 +25,7 @@ export interface RuntimeDiscordMessageResponse {
     content?: string;
     answer?: string;
     memoryCount?: number;
+    eventCount?: number;
     souls?: readonly string[];
     error?: string;
   };
@@ -71,6 +74,31 @@ export async function handleRuntimeDiscordMessage(
     };
   }
 
+  const scheduleQuery = parseScheduleQuery(
+    route.content,
+    new Date(),
+    runtime.scheduleTimezone
+  );
+
+  if (scheduleQuery) {
+    const briefing = await runtime.schedule.buildBriefing({
+      mode: scheduleQuery.mode,
+      date: scheduleQuery.date,
+      discordGuildId: body.guildId,
+      discordChannelId: body.channelId,
+      timezone: runtime.scheduleTimezone
+    });
+
+    return {
+      status: 200,
+      body: {
+        kind: "schedule",
+        content: briefing.discordMessage,
+        eventCount: briefing.eventCount
+      }
+    };
+  }
+
   const response = await runtime.chat.respond({
     sessionId: body.sessionId ?? body.channelId,
     user: {
@@ -103,6 +131,7 @@ export function isDiscordMessageBody(
     id?: unknown;
     authorId?: unknown;
     channelId?: unknown;
+    guildId?: unknown;
     content?: unknown;
     mentionedUserIds?: unknown;
   };
@@ -111,6 +140,7 @@ export function isDiscordMessageBody(
     typeof value.id === "string" &&
     typeof value.authorId === "string" &&
     typeof value.channelId === "string" &&
+    (value.guildId === undefined || typeof value.guildId === "string") &&
     typeof value.content === "string" &&
     (value.mentionedUserIds === undefined ||
       (Array.isArray(value.mentionedUserIds) &&

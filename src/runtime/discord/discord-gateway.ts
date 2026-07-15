@@ -176,6 +176,7 @@ async function handleGatewayMessage(
       id: message.id,
       authorId: message.author.id,
       channelId: message.channelId,
+      guildId: message.guildId ?? undefined,
       content: message.content,
       isBot: message.author.bot,
       isDirectMessage: message.guildId === null,
@@ -212,6 +213,20 @@ async function handleGatewayMessage(
     );
     await sendDiscordThreadReply(message, result.body.answer, logger);
     logger.info(`Discord thread reply sent. messageId=${message.id}`);
+    return;
+  }
+
+  if (result.body.kind === "schedule" && result.body.content) {
+    logger.info(
+      [
+        "Discord message routed to schedule.",
+        `messageId=${message.id}`,
+        `contentLength=${result.body.content.length}`,
+        `eventCount=${result.body.eventCount ?? 0}`
+      ].join(" ")
+    );
+    await sendDiscordThreadReply(message, result.body.content, logger);
+    logger.info(`Discord schedule reply sent. messageId=${message.id}`);
     return;
   }
 

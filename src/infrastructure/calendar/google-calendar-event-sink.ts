@@ -1,9 +1,12 @@
 import type {
+  CalendarEvent,
   CalendarEventDraft,
+  CalendarEventRange,
   CalendarEventSink,
+  CalendarEventSource,
   CreatedCalendarEvent
 } from "../../application";
-import { formatLocalDateTime } from "../../application";
+import { formatLocalDateTime, parseLocalDateTime } from "../../application";
 
 export interface GoogleCalendarEventSinkOptions {
   clientId: string;
@@ -14,7 +17,7 @@ export interface GoogleCalendarEventSinkOptions {
   fetch?: typeof fetch;
 }
 
-export class GoogleCalendarEventSink implements CalendarEventSink {
+export class GoogleCalendarEventSink implements CalendarEventSink, CalendarEventSource {
   private readonly fetchFn: typeof fetch;
 
   constructor(private readonly options: GoogleCalendarEventSinkOptions) {
@@ -56,6 +59,66 @@ export class GoogleCalendarEventSink implements CalendarEventSink {
       externalEventId: id,
       url: typeof body.htmlLink === "string" ? body.htmlLink : undefined
     };
+  }
+
+  async listEvents(range: CalendarEventRange): Promise<readonly CalendarEvent[]> {
+    assertGoogleCalendarTimezone(range.timezone);
+
+    const accessToken = await this.fetchAccessToken();
+    const events: CalendarEvent[] = [];
+    let pageToken: string | undefined;
+
+    do {
+      const url = new URL(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+          this.options.calendarId
+        )}/events`
+      );
+      url.searchParams.set("timeMin", range.startsAtFrom.toISOString());
+      url.searchParams.set("timeMax", range.startsAtTo.toISOString());
+      url.searchParams.set("singleEvents", "true");
+      url.searchParams.set("orderBy", "startTime");
+      url.searchParams.set("showDeleted", "false");
+      url.searchParams.set("maxResults", "2500");
+      url.searchParams.set("timeZone", range.timezone);
+
+      if (pageToken) {
+        url.searchParams.set("pageToken", pageToken);
+      }
+
+      const response = await this.fetchFn(url.toString(), {
+        method: "GET",
+        headers: {
+          authorization: `Bearer ${accessToken}`
+        }
+      });
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        throw new Error(
+          `Google Calendar events request failed with ${response.status}: ${responseText.slice(0, 500)}`
+        );
+      }
+
+      const body = responseText ? JSON.parse(responseText) : {};
+      const items = Array.isArray(body.items) ? body.items : [];
+
+      for (const item of items) {
+        const event = parseGoogleCalendarEvent(item, range.timezone);
+
+        if (
+          event &&
+          event.startsAt >= range.startsAtFrom &&
+          event.startsAt < range.startsAtTo
+        ) {
+          events.push(event);
+        }
+      }
+
+      pageToken = typeof body.nextPageToken === "string" ? body.nextPageToken : undefined;
+    } while (pageToken);
+
+    return events.sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime());
   }
 
   private async fetchAccessToken(): Promise<string> {
@@ -118,10 +181,88 @@ function toGoogleCalendarEventBody(
 }
 
 function toGoogleDateTime(date: Date, timezone: string): string {
-  if (timezone !== "Asia/Seoul") {
-    throw new Error("Google Calendar sync currently supports Asia/Seoul schedules only.");
-  }
+  assertGoogleCalendarTimezone(timezone);
 
   const local = formatLocalDateTime(date, timezone);
   return `${local.date}T${local.time}:00+09:00`;
+}
+
+function parseGoogleCalendarEvent(
+  value: unknown,
+  timezone: string
+): CalendarEvent | undefined {
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
+
+  const event = value as {
+    id?: unknown;
+    status?: unknown;
+    summary?: unknown;
+    description?: unknown;
+    htmlLink?: unknown;
+    start?: {
+      dateTime?: unknown;
+      date?: unknown;
+    };
+  };
+
+  if (event.status === "cancelled" || typeof event.id !== "string") {
+    return undefined;
+  }
+
+  const startsAt = parseGoogleEventStart(event.start, timezone);
+
+  if (!startsAt) {
+    return undefined;
+  }
+
+  return {
+    provider: "google",
+    externalEventId: event.id,
+    title: typeof event.summary === "string" && event.summary.trim()
+      ? event.summary.trim()
+      : "(제목 없음)",
+    startsAt,
+    timezone,
+    notes: typeof event.description === "string" && event.description.trim()
+      ? event.description.trim()
+      : undefined,
+    url: typeof event.htmlLink === "string" ? event.htmlLink : undefined
+  };
+}
+
+function parseGoogleEventStart(
+  start: { dateTime?: unknown; date?: unknown } | undefined,
+  timezone: string
+): Date | undefined {
+  if (!start) {
+    return undefined;
+  }
+
+  if (typeof start.dateTime === "string") {
+    const parsed = new Date(start.dateTime);
+
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  }
+
+  if (typeof start.date === "string") {
+    try {
+      return parseLocalDateTime({
+        localDate: start.date,
+        localTime: "00:00",
+        timezone
+      });
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
+function assertGoogleCalendarTimezone(timezone: string): void {
+  if (timezone !== "Asia/Seoul") {
+    throw new Error("Google Calendar sync currently supports Asia/Seoul schedules only.");
+  }
 }

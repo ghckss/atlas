@@ -114,6 +114,103 @@ test("GoogleCalendarEventSink creates timed events through OAuth", async () => {
   });
 });
 
+test("GoogleCalendarEventSink lists Google Calendar events through OAuth", async () => {
+  const requests: Array<{
+    url: string;
+    init?: RequestInit;
+  }> = [];
+  const sink = new GoogleCalendarEventSink({
+    clientId: "client-id",
+    clientSecret: "client-secret",
+    refreshToken: "refresh-token",
+    calendarId: "primary",
+    defaultDurationMinutes: 45,
+    fetch: async (url, init) => {
+      requests.push({
+        url: String(url),
+        init
+      });
+
+      if (String(url) === "https://oauth2.googleapis.com/token") {
+        return new Response(JSON.stringify({ access_token: "access-token" }), {
+          status: 200
+        });
+      }
+
+      return new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "event-1",
+              summary: "팀 회의",
+              description: "회의실 A",
+              htmlLink: "https://calendar.google.com/event?eid=event-1",
+              start: {
+                dateTime: "2026-07-14T10:30:00+09:00"
+              }
+            },
+            {
+              id: "event-2",
+              summary: "휴가",
+              start: {
+                date: "2026-07-15"
+              }
+            },
+            {
+              id: "event-cancelled",
+              status: "cancelled",
+              summary: "취소된 일정",
+              start: {
+                dateTime: "2026-07-16T10:30:00+09:00"
+              }
+            }
+          ]
+        }),
+        { status: 200 }
+      );
+    }
+  });
+
+  const events = await sink.listEvents({
+    startsAtFrom: new Date("2026-06-30T15:00:00.000Z"),
+    startsAtTo: new Date("2026-07-31T15:00:00.000Z"),
+    timezone: "Asia/Seoul"
+  });
+  const listUrl = new URL(requests[1].url);
+
+  assert.equal(listUrl.origin + listUrl.pathname, "https://www.googleapis.com/calendar/v3/calendars/primary/events");
+  assert.equal(listUrl.searchParams.get("singleEvents"), "true");
+  assert.equal(listUrl.searchParams.get("orderBy"), "startTime");
+  assert.equal(listUrl.searchParams.get("timeMin"), "2026-06-30T15:00:00.000Z");
+  assert.equal(listUrl.searchParams.get("timeMax"), "2026-07-31T15:00:00.000Z");
+  assert.equal(
+    (requests[1].init?.headers as Record<string, string>).authorization,
+    "Bearer access-token"
+  );
+  assert.deepEqual(
+    events.map((event) => ({
+      id: event.externalEventId,
+      title: event.title,
+      startsAt: event.startsAt.toISOString(),
+      notes: event.notes
+    })),
+    [
+      {
+        id: "event-1",
+        title: "팀 회의",
+        startsAt: "2026-07-14T01:30:00.000Z",
+        notes: "회의실 A"
+      },
+      {
+        id: "event-2",
+        title: "휴가",
+        startsAt: "2026-07-14T15:00:00.000Z",
+        notes: undefined
+      }
+    ]
+  );
+});
+
 test("news source client collects Google News RSS by query", async () => {
   const requestedUrls: string[] = [];
   const client = new HttpNewsSourceClient({

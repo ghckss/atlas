@@ -17,3 +17,23 @@ export interface CreatedCalendarEvent {
 export interface CalendarEventSink {
   createEvent(draft: CalendarEventDraft): Promise<CreatedCalendarEvent>;
 }
+
+export interface CalendarEventRange {
+  startsAtFrom: Date;
+  startsAtTo: Date;
+  timezone: string;
+}
+
+export interface CalendarEvent {
+  provider: CalendarEventProvider;
+  externalEventId: string;
+  title: string;
+  startsAt: Date;
+  timezone: string;
+  notes?: string;
+  url?: string;
+}
+
+export interface CalendarEventSource {
+  listEvents(range: CalendarEventRange): Promise<readonly CalendarEvent[]>;
+}

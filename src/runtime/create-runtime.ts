@@ -3,6 +3,7 @@ import {
   HermesNewsBriefingService,
   MemoryContextService,
   ScheduleService,
+  type CalendarEventSource,
   type CalendarEventSink,
   type MemoryRepository,
   type ScheduleRepository,
@@ -32,6 +33,7 @@ export interface LocalRuntime {
   newsBriefing: HermesNewsBriefingService;
   newsCollector: HttpNewsSourceClient;
   schedule: ScheduleService;
+  scheduleTimezone: string;
   discord: DiscordInterfaceConfig;
 }
 
@@ -39,7 +41,7 @@ export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
   const embeddingProvider = new DeterministicEmbeddingProvider();
   const memoryRepository = createMemoryRepository(config);
   const scheduleRepository = createScheduleRepository(config);
-  const calendarEventSink = createCalendarEventSink(config);
+  const calendarClient = createCalendarClient(config);
   const memoryContext = new MemoryContextService(
     embeddingProvider,
     memoryRepository
@@ -58,7 +60,8 @@ export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
     newsCollector: new HttpNewsSourceClient({
       timeoutMs: config.news.collectionTimeoutMs
     }),
-    schedule: new ScheduleService(scheduleRepository, calendarEventSink),
+    schedule: new ScheduleService(scheduleRepository, calendarClient, calendarClient),
+    scheduleTimezone: config.schedule.timezone,
     discord: {
       botUserId: config.discord.botUserId,
       dedicatedChannelId: config.discord.dedicatedChannelId,
@@ -71,7 +74,9 @@ function createScheduleRepository(config: RuntimeConfig): ScheduleRepository {
   return new PostgresScheduleRepository(config.databaseUrl);
 }
 
-function createCalendarEventSink(config: RuntimeConfig): CalendarEventSink | undefined {
+function createCalendarClient(
+  config: RuntimeConfig
+): (CalendarEventSink & CalendarEventSource) | undefined {
   if (!config.calendar.googleEnabled) {
     return undefined;
   }

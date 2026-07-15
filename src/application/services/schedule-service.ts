@@ -1,5 +1,10 @@
 import type { ScheduleEvent, ScheduleEventDraft } from "../../domain";
-import type { CalendarEventSink, ScheduleRepository } from "../ports";
+import type {
+  CalendarEvent,
+  CalendarEventSink,
+  CalendarEventSource,
+  ScheduleRepository
+} from "../ports";
 
 export interface AddScheduleEventInput {
   ownerUserId: string;
@@ -25,6 +30,7 @@ export interface ScheduleBriefingResponse {
   discordMessage: string;
   discordMessages: readonly string[];
   eventCount: number;
+  calendarEventCount: number;
 }
 
 export interface AddScheduleEventResult {
@@ -52,7 +58,8 @@ const DISCORD_MESSAGE_LIMIT = 2000;
 export class ScheduleService {
   constructor(
     private readonly repository: ScheduleRepository,
-    private readonly calendarEventSink?: CalendarEventSink
+    private readonly calendarEventSink?: CalendarEventSink,
+    private readonly calendarEventSource?: CalendarEventSource
   ) {}
 
   async addEvent(input: AddScheduleEventInput): Promise<AddScheduleEventResult> {
@@ -130,13 +137,21 @@ export class ScheduleService {
       request.mode === "daily"
         ? localDayRange(request.date, request.timezone)
         : localMonthRange(request.date, request.timezone);
-    const events = await this.repository.listEvents({
+    const repositoryEvents = await this.repository.listEvents({
       discordGuildId: request.discordGuildId,
       discordChannelId: request.discordChannelId,
       startsAtFrom: range.from,
       startsAtTo: range.to,
       status: "active"
     });
+    const calendarEvents = this.calendarEventSource
+      ? await this.calendarEventSource.listEvents({
+          startsAtFrom: range.from,
+          startsAtTo: range.to,
+          timezone: request.timezone
+        })
+      : [];
+    const events = mergeBriefingEvents(repositoryEvents, calendarEvents);
     const message = formatScheduleBriefing({
       mode: request.mode,
       date: request.date,
@@ -149,9 +164,20 @@ export class ScheduleService {
       shouldSend: discordMessages.length > 0,
       discordMessage: discordMessages[0] ?? "",
       discordMessages,
-      eventCount: events.length
+      eventCount: events.length,
+      calendarEventCount: calendarEvents.length
     };
   }
+}
+
+interface ScheduleBriefingEvent {
+  id: string;
+  title: string;
+  startsAt: Date;
+  timezone: string;
+  notes?: string;
+  externalCalendarProvider?: "google";
+  externalCalendarEventId?: string;
 }
 
 export function parseLocalDateTime(input: {
@@ -265,7 +291,7 @@ function formatScheduleBriefing(input: {
   mode: "daily" | "monthly";
   date: string;
   timezone: string;
-  events: readonly ScheduleEvent[];
+  events: readonly ScheduleBriefingEvent[];
 }): string {
   if (input.mode === "daily") {
     return [
@@ -289,7 +315,7 @@ function formatScheduleBriefing(input: {
 }
 
 function formatEventLine(
-  event: ScheduleEvent,
+  event: ScheduleBriefingEvent,
   index: number,
   timezone: string
 ): string {
@@ -297,6 +323,63 @@ function formatEventLine(
   const notes = event.notes ? ` - ${event.notes}` : "";
 
   return `${index + 1}. ${local.date} ${local.time} ${event.title}${notes}`;
+}
+
+function mergeBriefingEvents(
+  repositoryEvents: readonly ScheduleEvent[],
+  calendarEvents: readonly CalendarEvent[]
+): readonly ScheduleBriefingEvent[] {
+  const calendarEventKeys = new Set(
+    calendarEvents.map((event) =>
+      externalCalendarKey(event.provider, event.externalEventId)
+    )
+  );
+  const events = [
+    ...calendarEvents.map((event) => ({
+      id: `google:${event.externalEventId}`,
+      title: event.title,
+      startsAt: event.startsAt,
+      timezone: event.timezone,
+      notes: event.notes,
+      externalCalendarProvider: event.provider,
+      externalCalendarEventId: event.externalEventId
+    })),
+    ...repositoryEvents
+      .filter(
+        (event) =>
+          !event.externalCalendarProvider ||
+          !event.externalCalendarEventId ||
+          !calendarEventKeys.has(
+            externalCalendarKey(
+              event.externalCalendarProvider,
+              event.externalCalendarEventId
+            )
+          )
+      )
+      .map((event) => ({
+        id: event.id,
+        title: event.title,
+        startsAt: event.startsAt,
+        timezone: event.timezone,
+        notes: event.notes,
+        externalCalendarProvider: event.externalCalendarProvider,
+        externalCalendarEventId: event.externalCalendarEventId
+      }))
+  ];
+
+  return events.sort((left, right) => {
+    const byTime = left.startsAt.getTime() - right.startsAt.getTime();
+
+    if (byTime !== 0) {
+      return byTime;
+    }
+
+    return left.title.localeCompare(right.title, "ko");
+  });
+}
+
+function externalCalendarKey(provider: string, id: string): string {
+  return `${provider}:${id}`;
 }
 
 function splitDiscordMessages(message: string): readonly string[] {

@@ -62,7 +62,7 @@
 - DM은 Owner 개인 작업이나 민감한 응답에 한해 제한적으로 처리한다.
 - 설정 변경과 시스템 변경은 Owner 권한으로 제한한다.
 - `/일정` slash command는 일정 추가 모달을 열고, 입력된 일정은 PostgreSQL에 저장한다.
-- `GOOGLE_CALENDAR_ENABLED=true`이면 `/일정` 등록 후 Google Calendar에도 같은 일정을 생성한다.
+- `GOOGLE_CALENDAR_ENABLED=true`이면 `/일정` 등록 후 Google Calendar에도 같은 일정을 생성하고, 자연어 일정 조회와 정기 브리핑은 Google Calendar의 실제 이벤트를 읽어 PostgreSQL 일정과 병합한다.
 
 Discord slash command를 등록하거나 갱신하려면 다음 명령을 실행한다. `DISCORD_GUILD_ID`가 있으면 해당 서버에만 빠르게 반영하고, 없으면 global command로 등록한다.
 
@@ -166,6 +166,8 @@ GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES=60
 ```
 
 `/일정` 모달에는 종료 시간이 없으므로 Google Calendar event의 종료 시간은 `GOOGLE_CALENDAR_DEFAULT_EVENT_DURATION_MINUTES`로 계산한다. Google Calendar 생성에 실패해도 PostgreSQL 일정 저장은 유지되며, Discord 모달 응답에 Calendar 저장 실패 메시지를 표시한다.
+
+자연어 일정 조회와 n8n 일정 브리핑은 같은 refresh token으로 Google Calendar `events` 목록을 읽는다. `/일정`으로 만든 이벤트가 Google Calendar에 동기화된 경우에는 Google Calendar의 이벤트 ID를 기준으로 PostgreSQL 중복 항목을 제거하고, Google Calendar에 직접 추가한 일정도 함께 표시한다.
 
 ## 검증
 
