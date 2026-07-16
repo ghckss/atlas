@@ -310,60 +310,6 @@ test("news source client collects Google News top stories without a query", asyn
   );
 });
 
-test("news source client collects Naver News through the official search API", async () => {
-  const calls: Array<{ url: string; headers: HeadersInit | undefined }> = [];
-  const client = new HttpNewsSourceClient({
-    fetchImpl: async (url, init) => {
-      calls.push({
-        url: String(url),
-        headers: init?.headers
-      });
-
-      return new Response(
-        JSON.stringify({
-          items: [
-            {
-              title: "<b>AI</b> 뉴스",
-              originallink: "https://example.com/naver-ai",
-              link: "https://n.news.naver.com/article",
-              description: "네이버 <b>뉴스</b> 요약",
-              pubDate: "Sat, 11 Jul 2026 18:00:00 +0900"
-            }
-          ]
-        }),
-        { status: 200 }
-      );
-    }
-  });
-
-  assert.deepEqual(
-    await client.collect({
-      providers: ["naver-news"],
-      query: "AI",
-      naverClientId: "naver-id",
-      naverClientSecret: "naver-secret",
-      naverDisplay: 5
-    }),
-    [
-      {
-        title: "AI 뉴스",
-        url: "https://example.com/naver-ai",
-        source: "naver-news",
-        publishedAt: "Sat, 11 Jul 2026 18:00:00 +0900",
-        summary: "네이버 뉴스 요약"
-      }
-    ]
-  );
-
-  const headers = calls[0].headers as Record<string, string>;
-  assert.equal(
-    calls[0].url,
-    "https://openapi.naver.com/v1/search/news.json?query=AI&display=5&sort=date"
-  );
-  assert.equal(headers["X-Naver-Client-Id"], "naver-id");
-  assert.equal(headers["X-Naver-Client-Secret"], "naver-secret");
-});
-
 test("n8n workflow client creates or updates workflows by name", async () => {
   const calls: Array<{
     url: string;

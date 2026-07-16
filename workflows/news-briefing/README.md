@@ -16,7 +16,6 @@
 - Hermes runtime은 `NEWS_PROVIDERS`를 기준으로 뉴스를 수집해 article 목록으로 정규화한다.
 - `google-news-top` provider는 Google News Top Stories RSS를 사용한다.
 - `google-news` provider는 `NEWS_QUERY` 기반 Google News RSS 검색을 사용한다.
-- `naver-news` provider는 Naver Search API를 사용하며 `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`이 필요하다.
 - `NEWS_SOURCE_URLS`는 수동 JSON 또는 RSS source를 추가할 때만 사용한다.
 - 수집 결과는 `{ "articles": [...] }` 형태를 기대한다.
 - 각 article은 최소 `title`, `url`을 포함해야 한다.
@@ -39,9 +38,6 @@
 - `NEWS_QUERY`
 - `NEWS_GOOGLE_LANGUAGE`
 - `NEWS_GOOGLE_COUNTRY`
-- `NAVER_CLIENT_ID`
-- `NAVER_CLIENT_SECRET`
-- `NEWS_NAVER_DISPLAY`
 - `NEWS_MAX_ARTICLES`
 - `NEWS_SOURCE_URLS`
 - `NEWS_BRIEFING_DISCORD_CHANNEL_ID`

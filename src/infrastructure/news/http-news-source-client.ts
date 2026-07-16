@@ -11,9 +11,6 @@ export interface NewsCollectionRequest {
   query?: string;
   googleLanguage?: string;
   googleCountry?: string;
-  naverClientId?: string;
-  naverClientSecret?: string;
-  naverDisplay?: number;
   maxArticles?: number;
 }
 
@@ -55,17 +52,6 @@ export class HttpNewsSourceClient {
           query,
           language: normalized.googleLanguage ?? "ko",
           country: normalized.googleCountry ?? "KR"
-        })
-      );
-    }
-
-    if (query && providers.has("naver-news")) {
-      tasks.push(
-        this.fetchNaverNews({
-          query,
-          clientId: normalized.naverClientId,
-          clientSecret: normalized.naverClientSecret,
-          display: normalized.naverDisplay ?? 10
         })
       );
     }
@@ -116,31 +102,6 @@ export class HttpNewsSourceClient {
       await this.fetchText(url.toString()),
       "google-news-top"
     );
-  }
-
-  private async fetchNaverNews(options: {
-    query: string;
-    clientId?: string;
-    clientSecret?: string;
-    display: number;
-  }): Promise<readonly NewsArticle[]> {
-    if (!options.clientId || !options.clientSecret) {
-      throw new Error(
-        "NAVER_CLIENT_ID and NAVER_CLIENT_SECRET are required for naver-news."
-      );
-    }
-
-    const url = new URL("https://openapi.naver.com/v1/search/news.json");
-    url.searchParams.set("query", options.query);
-    url.searchParams.set("display", String(clamp(options.display, 1, 100)));
-    url.searchParams.set("sort", "date");
-
-    const responseText = await this.fetchText(url.toString(), {
-      "X-Naver-Client-Id": options.clientId,
-      "X-Naver-Client-Secret": options.clientSecret
-    });
-
-    return readJsonArticles(JSON.parse(responseText), "naver-news");
   }
 
   private async fetchText(
@@ -321,12 +282,4 @@ function decodeXmlEntities(value: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&amp;/g, "&")
     .replace(/&nbsp;/g, " ");
-}
-
-function clamp(value: number, min: number, max: number): number {
-  if (!Number.isFinite(value)) {
-    return min;
-  }
-
-  return Math.min(Math.max(Math.trunc(value), min), max);
 }

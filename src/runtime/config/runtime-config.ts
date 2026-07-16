@@ -55,9 +55,6 @@ export interface RuntimeConfig {
     query: string;
     googleLanguage: string;
     googleCountry: string;
-    naverClientId?: string;
-    naverClientSecret?: string;
-    naverDisplay: number;
     maxArticles: number;
     collectionTimeoutMs: number;
   };
@@ -156,12 +153,6 @@ export function loadRuntimeConfig(
       query: env.NEWS_QUERY ?? "",
       googleLanguage: env.NEWS_GOOGLE_LANGUAGE ?? "ko",
       googleCountry: env.NEWS_GOOGLE_COUNTRY ?? "KR",
-      naverClientId: env.NAVER_CLIENT_ID,
-      naverClientSecret: env.NAVER_CLIENT_SECRET,
-      naverDisplay: parsePositiveInteger(
-        env.NEWS_NAVER_DISPLAY ?? "10",
-        "NEWS_NAVER_DISPLAY"
-      ),
       maxArticles: parsePositiveInteger(
         env.NEWS_MAX_ARTICLES ?? "10",
         "NEWS_MAX_ARTICLES"
@@ -296,6 +287,19 @@ function parseNewsProviders(
   sourceUrls: readonly string[]
 ): readonly string[] {
   const providers = parseCsv(value);
+  const supportedProviders = new Set([
+    "google-news-top",
+    "google-news",
+    "source-url"
+  ]);
+
+  for (const provider of providers) {
+    if (!supportedProviders.has(provider)) {
+      throw new Error(
+        "NEWS_PROVIDERS must contain only google-news-top, google-news, or source-url."
+      );
+    }
+  }
 
   if (providers.length > 0) {
     return providers;

@@ -47,9 +47,6 @@
 - `NEWS_QUERY`
 - `NEWS_GOOGLE_LANGUAGE`
 - `NEWS_GOOGLE_COUNTRY`
-- `NAVER_CLIENT_ID`
-- `NAVER_CLIENT_SECRET`
-- `NEWS_NAVER_DISPLAY`
 - `NEWS_MAX_ARTICLES`
 - `NEWS_SOURCE_URLS`
 - `NEWS_COLLECTION_TIMEOUT_MS`
@@ -209,14 +206,11 @@ NEWS_MAX_ARTICLES=10
 
 `google-news-top`은 키워드 검색이 아니라 Google News Top Stories RSS를 사용한다. 오늘 봐야 할 주요 이슈를 넓게 훑는 기본값이다.
 
-관심 키워드 검색이 필요할 때만 `google-news` 또는 `naver-news` provider와 `NEWS_QUERY`를 함께 사용한다. Naver 뉴스 검색을 쓰려면 네이버 개발자 센터에서 Search API 애플리케이션을 등록하고 다음 값을 추가한다.
+관심 키워드 검색이 필요할 때만 `google-news` provider와 `NEWS_QUERY`를 함께 사용한다.
 
 ```env
-NEWS_PROVIDERS=google-news-top,naver-news
+NEWS_PROVIDERS=google-news-top,google-news
 NEWS_QUERY=AI OR 인공지능
-NAVER_CLIENT_ID=...
-NAVER_CLIENT_SECRET=...
-NEWS_NAVER_DISPLAY=10
 ```
 
 `NEWS_SOURCE_URLS`는 수동 JSON 또는 RSS source를 추가할 때만 사용한다. 쉼표로 구분하며, JSON source는 배열 또는 `{ "articles": [...] }`, `{ "items": [...] }`, `{ "data": [...] }` 형태를 반환해야 한다.
