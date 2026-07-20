@@ -87,6 +87,8 @@ N8N_API_URL=http://localhost:5678 N8N_API_KEY=... pnpm n8n:sync
 ```
 
 Workflow JSON의 `{{ENV:NAME}}` 값은 `pnpm n8n:sync` 실행 시 `.env`에서 읽어 n8n payload에 주입한다. n8n 실행 중 `$env` 접근은 사용하지 않는다.
+기존 workflow가 active 상태였으면 sync 후 n8n 스케줄 트리거를 다시 등록하기 위해 자동으로 deactivate/activate를 수행한다.
+Docker로 n8n을 운영할 때 active workflow인데 정시 실행 이력이 생기지 않으면 `docker restart n8n`으로 프로세스를 재시작해 active workflow cron을 다시 로드한다.
 
 Discord slash command 동기화:
 

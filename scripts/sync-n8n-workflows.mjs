@@ -18,6 +18,7 @@ const existingList = Array.isArray(existingWorkflows)
   : Array.isArray(existingWorkflows?.data)
     ? existingWorkflows.data
     : [];
+let refreshedActiveWorkflowCount = 0;
 
 for (const workflowName of readdirSync(workflowsDir)) {
   const jsonPath = join(
@@ -37,6 +38,12 @@ for (const workflowName of readdirSync(workflowsDir)) {
       body: JSON.stringify(workflowPayload)
     });
     console.log(`Updated n8n workflow: ${workflow.name}`);
+
+    if (existing.active) {
+      await refreshActiveWorkflowTrigger(existing.id, workflow.name);
+      refreshedActiveWorkflowCount += 1;
+    }
+
     continue;
   }
 
@@ -45,6 +52,22 @@ for (const workflowName of readdirSync(workflowsDir)) {
     body: JSON.stringify(workflowPayload)
   });
   console.log(`Created n8n workflow: ${workflow.name}`);
+}
+
+if (refreshedActiveWorkflowCount > 0) {
+  console.log(
+    "Active workflows were refreshed through the n8n API. If schedule triggers do not fire, restart the n8n process so cron registrations are reloaded."
+  );
+}
+
+async function refreshActiveWorkflowTrigger(workflowId, workflowName) {
+  await request(`/api/v1/workflows/${workflowId}/deactivate`, {
+    method: "POST"
+  });
+  await request(`/api/v1/workflows/${workflowId}/activate`, {
+    method: "POST"
+  });
+  console.log(`Refreshed active n8n workflow trigger: ${workflowName}`);
 }
 
 function toN8nWorkflowPayload(workflow) {
