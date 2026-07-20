@@ -63,7 +63,7 @@
 - DM은 Owner 개인 작업이나 민감한 응답에 한해 제한적으로 처리한다.
 - 설정 변경과 시스템 변경은 Owner 권한으로 제한한다.
 - `/일정` slash command는 일정 추가 모달을 열고, 입력된 일정은 Google Calendar에 직접 저장한다.
-- `/작업승인` slash command는 Owner 전용이며, 봇이 남긴 승인 대기 변경사항을 저장소별로 commit 후 push한다.
+- `/작업승인` slash command는 Owner 전용이며, 봇이 남긴 승인 대기 변경사항을 저장소별로 commit 후 push한다. 성공하거나 commit할 변경사항이 없으면 명령을 실행한 Discord thread를 자동으로 닫는다.
 - 자연어 일정 조회와 정기 브리핑은 Google Calendar의 실제 이벤트를 읽는다.
 
 Discord slash command를 등록하거나 갱신하려면 다음 명령을 실행한다. `DISCORD_GUILD_ID`가 있으면 해당 서버에만 빠르게 반영하고, 없으면 global command로 등록한다.

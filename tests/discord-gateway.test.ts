@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   addDiscordRequestStatusReaction,
+  archiveDiscordThread,
   createDiscordGatewayClient,
   createLocalRuntime,
   DISCORD_REQUEST_STATUS_REACTIONS,
@@ -187,6 +188,62 @@ test("Discord Gateway falls back to channel replies when thread creation fails",
   await sendDiscordThreadReply(message as never, "fallback", silentLogger);
 
   assert.deepEqual(replies, ["fallback"]);
+});
+
+test("Discord Gateway archives a thread after completed work", async () => {
+  const archived: Array<{ archived: boolean; reason?: string }> = [];
+  const channel = {
+    id: "thread-1",
+    isThread: () => true,
+    async setArchived(value: boolean, reason?: string) {
+      archived.push({ archived: value, reason });
+    }
+  };
+
+  const result = await archiveDiscordThread(channel, silentLogger);
+
+  assert.equal(result, true);
+  assert.deepEqual(archived, [
+    { archived: true, reason: "Hermes task completed" }
+  ]);
+});
+
+test("Discord Gateway ignores non-thread channels when archiving", async () => {
+  let archiveCalls = 0;
+  const channel = {
+    id: "channel-1",
+    isThread: () => false,
+    async setArchived() {
+      archiveCalls += 1;
+    }
+  };
+
+  const result = await archiveDiscordThread(channel, silentLogger);
+
+  assert.equal(result, false);
+  assert.equal(archiveCalls, 0);
+});
+
+test("Discord Gateway archive failures do not fail completed work", async () => {
+  const errors: string[] = [];
+  const channel = {
+    id: "thread-1",
+    isThread: () => true,
+    async setArchived() {
+      throw new Error("missing permission");
+    }
+  };
+
+  const result = await archiveDiscordThread(channel, {
+    info() {},
+    error(message: string) {
+      errors.push(message);
+    }
+  });
+
+  assert.equal(result, false);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /threadId=thread-1/);
 });
 
 test("Discord Gateway edits deferred interaction replies", async () => {

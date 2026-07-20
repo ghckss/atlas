@@ -95,7 +95,7 @@ Discord slash command 동기화:
 pnpm discord:commands:sync
 ```
 
-`/작업승인`은 Owner 전용 명령이다. 봇이 `workspace-write`로 처리한 요청에서 파일 변경이 생기면, Owner가 이 명령으로 변경된 저장소를 commit 후 push한다. `DISCORD_GIT_APPROVAL_WORKSPACE_ROOTS`를 설정하면 해당 root 아래의 git 저장소들을 탐색해 실제로 변경된 저장소만 승인 대상으로 삼는다.
+`/작업승인`은 Owner 전용 명령이다. 봇이 `workspace-write`로 처리한 요청에서 파일 변경이 생기면, Owner가 이 명령으로 변경된 저장소를 commit 후 push한다. 승인이 성공하거나 commit할 변경사항이 없으면 명령을 실행한 Discord thread를 자동으로 닫는다. `DISCORD_GIT_APPROVAL_WORKSPACE_ROOTS`를 설정하면 해당 root 아래의 git 저장소들을 탐색해 실제로 변경된 저장소만 승인 대상으로 삼는다.
 
 뉴스 브리핑 workflow는 매일 10:00 Asia/Seoul에 실행되며, `HERMES_NEWS_COLLECTION_URL`에서 article 목록을 가져온 뒤 Hermes webhook으로 요약을 위임합니다.
 

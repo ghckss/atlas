@@ -105,7 +105,7 @@ export function createDiscordGatewayClient(
 
   client.on(Events.InteractionCreate, async (interaction) => {
     try {
-      await handleGatewayInteraction(interaction, runtime, config);
+      await handleGatewayInteraction(interaction, runtime, config, logger);
     } catch (error) {
       logger.error("Discord interaction handling failed.", error);
     }
@@ -408,6 +408,30 @@ interface DiscordThreadReplyTarget {
   send(options: { content: string }): Promise<unknown>;
 }
 
+interface DiscordThreadArchiveTarget {
+  id: string;
+  isThread(): boolean;
+  setArchived(archived: boolean, reason?: string): Promise<unknown>;
+}
+
+export async function archiveDiscordThread(
+  channel: unknown,
+  logger: DiscordGatewayLogger = console
+): Promise<boolean> {
+  if (!isThreadArchiveTarget(channel)) {
+    return false;
+  }
+
+  try {
+    await channel.setArchived(true, "Hermes task completed");
+    logger.info(`Discord thread archived. threadId=${channel.id}`);
+    return true;
+  } catch (error) {
+    logger.error(`Discord thread archive failed. threadId=${channel.id}`, error);
+    return false;
+  }
+}
+
 export async function sendDiscordThreadReply(
   message: Message,
   content: string,
@@ -469,6 +493,21 @@ function isThreadReplyTarget(
   );
 }
 
+function isThreadArchiveTarget(
+  channel: unknown
+): channel is DiscordThreadArchiveTarget {
+  const candidate = channel as Partial<DiscordThreadArchiveTarget> | null;
+
+  return (
+    candidate !== null &&
+    typeof candidate === "object" &&
+    typeof candidate.id === "string" &&
+    typeof candidate.isThread === "function" &&
+    candidate.isThread() &&
+    typeof candidate.setArchived === "function"
+  );
+}
+
 export function formatDiscordThreadName(content: string): string {
   const normalized = content
     .replace(/<@!?\d+>/g, "")
@@ -482,7 +521,8 @@ export function formatDiscordThreadName(content: string): string {
 async function handleGatewayInteraction(
   interaction: Interaction,
   runtime: LocalRuntime,
-  config: RuntimeConfig
+  config: RuntimeConfig,
+  logger: DiscordGatewayLogger
 ): Promise<void> {
   if (interaction.isModalSubmit()) {
     await handleGatewayModalSubmit(interaction, runtime, config);
@@ -499,7 +539,7 @@ async function handleGatewayInteraction(
   }
 
   if (interaction.commandName === "작업승인") {
-    await approvePendingGitWork(interaction, runtime, config);
+    await approvePendingGitWork(interaction, runtime, config, logger);
     return;
   }
 
@@ -518,7 +558,8 @@ async function handleGatewayInteraction(
 async function approvePendingGitWork(
   interaction: ChatInputCommandInteraction,
   runtime: LocalRuntime,
-  config: RuntimeConfig
+  config: RuntimeConfig,
+  logger: DiscordGatewayLogger
 ): Promise<void> {
   const userRole = roleForInteraction(interaction, config);
 
@@ -537,6 +578,10 @@ async function approvePendingGitWork(
   });
 
   await replyEphemeral(interaction, result.content, true);
+
+  if (result.status === "pushed" || result.status === "no-changes") {
+    await archiveDiscordThread(interaction.channel, logger);
+  }
 }
 
 async function showScheduleModal(
