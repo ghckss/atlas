@@ -336,6 +336,35 @@ test("CodexCliSoulRuntime logs execution failures", async (t) => {
   assert.match(events[1].errorMessage, /not logged in/);
 });
 
+test("CodexCliSoulRuntime allows workspace edits but defers git operations", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "hermes-codex-write-log-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const prompts: string[] = [];
+  const runtime = new CodexCliSoulRuntime({
+    sandbox: "workspace-write",
+    commandExecutor: async (input) => {
+      prompts.push(input.prompt);
+      await writeFile(input.outputFilePath, "수정 완료", "utf8");
+
+      return {
+        exitCode: 0,
+        stdout: "",
+        stderr: ""
+      };
+    }
+  });
+
+  await runtime.execute({
+    soul: "coder",
+    request: "코드 수정해줘",
+    memoryContext: ""
+  });
+
+  assert.match(prompts[0], /You may modify files/);
+  assert.match(prompts[0], /Do not run git commit, git push/);
+  assert.doesNotMatch(prompts[0], /Do not modify files/);
+});
+
 test("HermesChatService records conversation and returns pipeline output", async () => {
   const record = makeMemoryRecord("Prefers Korean responses.");
   const chatHistory = new FakeChatHistoryRepository();

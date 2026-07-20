@@ -96,6 +96,8 @@ Discord slash command 동기화:
 pnpm discord:commands:sync
 ```
 
+`/작업승인`은 Owner 전용 명령이다. 봇이 `workspace-write`로 처리한 요청에서 파일 변경이 생기면, Owner가 이 명령으로 현재 변경사항을 commit 후 push한다.
+
 뉴스 브리핑 workflow는 매일 10:00 Asia/Seoul에 실행되며, `HERMES_NEWS_COLLECTION_URL`에서 article 목록을 가져온 뒤 Hermes webhook으로 요약을 위임합니다.
 
 일정 기능은 Google Calendar를 원본으로 사용한다. `GOOGLE_CALENDAR_ENABLED=true`가 필요하며, `/일정` slash command는 모달 입력을 Google Calendar에 직접 저장한다. 자연어 일정 조회와 n8n 일정 브리핑도 Google Calendar의 실제 이벤트를 읽는다. 일정 브리핑 workflow는 매일 10:00에 당일 일정을, 매월 1일 10:00에 해당 월 전체 일정을 Discord로 전송한다.

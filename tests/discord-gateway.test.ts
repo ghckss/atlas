@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  addDiscordRequestStatusReaction,
   createDiscordGatewayClient,
   createLocalRuntime,
+  DISCORD_REQUEST_STATUS_REACTIONS,
   formatDiscordGatewayErrorReply,
   formatDiscordThreadName,
   loadRuntimeConfig,
@@ -60,6 +62,48 @@ test("Discord Gateway formats thread names from mention content", () => {
   assert.equal(formatDiscordThreadName("<@123> 안녕"), "안녕");
   assert.equal(formatDiscordThreadName("<@123>"), "Hermes 대화");
   assert.equal(formatDiscordThreadName("x".repeat(100)).length, 80);
+});
+
+test("Discord Gateway maps request statuses to reactions", async () => {
+  const reactions: string[] = [];
+  const message = {
+    id: "message-1",
+    async react(emoji: string) {
+      reactions.push(emoji);
+    }
+  };
+
+  await addDiscordRequestStatusReaction(message, "accepted", silentLogger);
+  await addDiscordRequestStatusReaction(message, "inProgress", silentLogger);
+  await addDiscordRequestStatusReaction(message, "completed", silentLogger);
+  await addDiscordRequestStatusReaction(message, "failed", silentLogger);
+
+  assert.deepEqual(reactions, [
+    DISCORD_REQUEST_STATUS_REACTIONS.accepted,
+    DISCORD_REQUEST_STATUS_REACTIONS.inProgress,
+    DISCORD_REQUEST_STATUS_REACTIONS.completed,
+    DISCORD_REQUEST_STATUS_REACTIONS.failed
+  ]);
+});
+
+test("Discord Gateway reaction failures do not fail the request", async () => {
+  const errors: string[] = [];
+  const message = {
+    id: "message-1",
+    async react() {
+      throw new Error("missing permission");
+    }
+  };
+
+  await addDiscordRequestStatusReaction(message, "accepted", {
+    info() {},
+    error(messageText: string) {
+      errors.push(messageText);
+    }
+  });
+
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /status=accepted/);
 });
 
 test("Discord Gateway sends mention replies in a new thread", async () => {

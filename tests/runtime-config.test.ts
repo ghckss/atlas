@@ -37,6 +37,10 @@ test("runtime config loads required local MVP settings", () => {
     CODEX_CLI_WORKDIR: "/tmp/hermes-project",
     CODEX_CLI_OSS: "true",
     CODEX_CLI_LOCAL_PROVIDER: "ollama",
+    DISCORD_GIT_APPROVAL_ENABLED: "true",
+    DISCORD_GIT_APPROVAL_WORKDIR: "/tmp/hermes-git",
+    DISCORD_GIT_APPROVAL_REMOTE: "upstream",
+    DISCORD_GIT_APPROVAL_DEFAULT_COMMIT_MESSAGE: "feat: approved bot work",
     LLM_REQUEST_TIMEOUT_MS: "20000",
     NEWS_GOOGLE_LANGUAGE: "ko",
     NEWS_GOOGLE_COUNTRY: "KR",
@@ -75,6 +79,13 @@ test("runtime config loads required local MVP settings", () => {
   assert.equal(config.llm.codexCliUseOss, true);
   assert.equal(config.llm.codexCliLocalProvider, "ollama");
   assert.equal(config.llm.requestTimeoutMs, 20000);
+  assert.equal(config.gitApproval.enabled, true);
+  assert.equal(config.gitApproval.workdir, "/tmp/hermes-git");
+  assert.equal(config.gitApproval.remote, "upstream");
+  assert.equal(
+    config.gitApproval.defaultCommitMessage,
+    "feat: approved bot work"
+  );
   assert.deepEqual(config.news.sourceUrls, [
     "https://news-a.example",
     "https://news-b.example"
@@ -110,6 +121,9 @@ test("runtime config defaults news collection to Google News top stories", () =>
   assert.equal(config.llm.codexCliCommand, "codex");
   assert.equal(config.llm.codexCliSandbox, "read-only");
   assert.equal(config.llm.codexCliUseOss, false);
+  assert.equal(config.gitApproval.enabled, false);
+  assert.equal(config.gitApproval.workdir, undefined);
+  assert.equal(config.gitApproval.remote, "origin");
 });
 
 test("runtime config supports Codex CLI as an LLM provider", () => {

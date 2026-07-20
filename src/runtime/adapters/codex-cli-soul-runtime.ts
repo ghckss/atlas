@@ -112,7 +112,9 @@ export class CodexCliSoulRuntime implements SoulRuntime {
   }
 
   async execute(input: SoulRuntimeInput): Promise<string> {
-    const prompt = buildCodexPrompt(input);
+    const prompt = buildCodexPrompt(input, {
+      allowFileChanges: this.sandbox !== "read-only"
+    });
     const startedAt = Date.now();
     const tempDirectory = await mkdtemp(join(tmpdir(), "hermes-codex-cli-"));
     const outputFilePath = join(tempDirectory, "last-message.txt");
@@ -318,14 +320,25 @@ async function runCodexCliCommand(
   });
 }
 
-function buildCodexPrompt(input: SoulRuntimeInput): string {
+function buildCodexPrompt(
+  input: SoulRuntimeInput,
+  options: { allowFileChanges: boolean }
+): string {
+  const fileInstructions = options.allowFileChanges
+    ? [
+        "You may modify files in the configured workspace when needed to satisfy the user request.",
+        "Do not run git commit, git push, git reset, or git checkout.",
+        "Leave repository changes in the worktree; the Discord owner approval command handles commit and push."
+      ]
+    : ["Do not modify files."];
+
   return [
     buildSoulInstructions(input),
     "",
     buildSoulUserInput(input),
     "",
     "Return only the final answer for the user.",
-    "Do not modify files.",
+    ...fileInstructions,
     "Do not include internal execution logs."
   ].join("\n");
 }

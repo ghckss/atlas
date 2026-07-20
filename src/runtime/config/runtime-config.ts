@@ -28,6 +28,12 @@ export interface RuntimeConfig {
     ownerUserIds: readonly string[];
     enableGateway: boolean;
   };
+  gitApproval: {
+    enabled: boolean;
+    workdir?: string;
+    remote: string;
+    defaultCommitMessage: string;
+  };
   n8n: {
     webhookSecret: string;
     apiUrl?: string;
@@ -69,6 +75,7 @@ export function loadRuntimeConfig(
   env: Record<string, string | undefined>
 ): RuntimeConfig {
   const newsSourceUrls = parseCsv(env.NEWS_SOURCE_URLS);
+  const codexCliWorkdir = parseOptionalText(env.CODEX_CLI_WORKDIR);
 
   return {
     nodeEnv: env.NODE_ENV ?? "development",
@@ -86,7 +93,7 @@ export function loadRuntimeConfig(
       codexCliModel: parseOptionalText(env.CODEX_CLI_MODEL),
       codexCliProfile: parseOptionalText(env.CODEX_CLI_PROFILE),
       codexCliSandbox: parseCodexCliSandbox(env.CODEX_CLI_SANDBOX),
-      codexCliWorkdir: parseOptionalText(env.CODEX_CLI_WORKDIR),
+      codexCliWorkdir,
       codexCliUseOss: parseBoolean(env.CODEX_CLI_OSS),
       codexCliLocalProvider: parseOptionalText(env.CODEX_CLI_LOCAL_PROVIDER),
       requestTimeoutMs: parsePositiveInteger(
@@ -104,6 +111,15 @@ export function loadRuntimeConfig(
       ),
       ownerUserIds: parseCsv(env.DISCORD_OWNER_USER_IDS),
       enableGateway: env.DISCORD_ENABLE_GATEWAY === "true"
+    },
+    gitApproval: {
+      enabled: parseBoolean(env.DISCORD_GIT_APPROVAL_ENABLED),
+      workdir:
+        parseOptionalText(env.DISCORD_GIT_APPROVAL_WORKDIR) ?? codexCliWorkdir,
+      remote: parseOptionalText(env.DISCORD_GIT_APPROVAL_REMOTE) ?? "origin",
+      defaultCommitMessage:
+        parseOptionalText(env.DISCORD_GIT_APPROVAL_DEFAULT_COMMIT_MESSAGE) ??
+        "chore: apply Discord-approved changes"
     },
     n8n: {
       webhookSecret: requireValue(env.N8N_WEBHOOK_SECRET, "N8N_WEBHOOK_SECRET"),

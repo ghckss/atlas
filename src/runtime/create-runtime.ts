@@ -17,6 +17,7 @@ import {
 } from "../infrastructure";
 import type { DiscordInterfaceConfig } from "../interfaces";
 import type { RuntimeConfig } from "./config/runtime-config";
+import { GitApprovalService } from "./git";
 import {
   CodexCliSoulRuntime,
   DeterministicEmbeddingProvider,
@@ -33,6 +34,7 @@ export interface LocalRuntime {
   schedule: ScheduleService;
   scheduleTimezone: string;
   discord: DiscordInterfaceConfig;
+  gitApproval: GitApprovalService;
 }
 
 export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
@@ -63,7 +65,13 @@ export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
       botUserId: config.discord.botUserId,
       dedicatedChannelId: config.discord.dedicatedChannelId,
       ownerUserIds: config.discord.ownerUserIds
-    }
+    },
+    gitApproval: new GitApprovalService({
+      enabled: config.gitApproval.enabled,
+      workdir: config.gitApproval.workdir,
+      remote: config.gitApproval.remote,
+      defaultCommitMessage: config.gitApproval.defaultCommitMessage
+    })
   };
 }
 

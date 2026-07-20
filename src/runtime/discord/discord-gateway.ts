@@ -15,14 +15,51 @@ import {
 } from "discord.js";
 import { formatLocalDateTime } from "../../application";
 import type { Role } from "../../domain";
-import { handleSlashCommand } from "../../interfaces";
+import { can } from "../../domain";
+import { handleSlashCommand, routeDiscordMessage } from "../../interfaces";
 import type { RuntimeConfig } from "../config/runtime-config";
 import type { LocalRuntime } from "../create-runtime";
+import type { GitApprovalSnapshot } from "../git";
 import { handleRuntimeDiscordMessage } from "./discord-message-handler";
 
 export interface DiscordGatewayLogger {
   info(message: string): void;
   error(message: string, error?: unknown): void;
+}
+
+export const DISCORD_REQUEST_STATUS_REACTIONS = {
+  accepted: "👀",
+  inProgress: "🔄",
+  completed: "✅",
+  failed: "❌"
+} as const;
+
+export type DiscordRequestStatus =
+  keyof typeof DISCORD_REQUEST_STATUS_REACTIONS;
+
+interface DiscordReactionTarget {
+  id: string;
+  react(emoji: string): Promise<unknown>;
+}
+
+export async function addDiscordRequestStatusReaction(
+  message: DiscordReactionTarget,
+  status: DiscordRequestStatus,
+  logger: DiscordGatewayLogger = console
+): Promise<void> {
+  const emoji = DISCORD_REQUEST_STATUS_REACTIONS[status];
+
+  try {
+    await message.react(emoji);
+    logger.info(
+      `Discord request status reaction added. messageId=${message.id} status=${status} emoji=${emoji}`
+    );
+  } catch (error) {
+    logger.error(
+      `Discord request status reaction failed. messageId=${message.id} status=${status} emoji=${emoji}`,
+      error
+    );
+  }
 }
 
 export function createDiscordGatewayClient(
@@ -156,6 +193,11 @@ async function handleGatewayMessage(
 ): Promise<void> {
   const mentionedUserIds = message.mentions.users.map((user) => user.id);
   const rawMentionedUserIds = extractRawMentionedUserIds(message.content);
+  const tracksRequestStatus = shouldTrackMentionRequestStatus(
+    message,
+    config,
+    mentionedUserIds
+  );
   logger.info(
     [
       "Discord message received.",
@@ -172,21 +214,59 @@ async function handleGatewayMessage(
     ].join(" ")
   );
 
-  const result = await handleRuntimeDiscordMessage(
-    {
-      id: message.id,
-      authorId: message.author.id,
-      channelId: message.channelId,
-      guildId: message.guildId ?? undefined,
-      content: message.content,
-      isBot: message.author.bot,
-      isDirectMessage: message.guildId === null,
-      mentionedUserIds,
-      sessionId: message.channelId,
-      userRole: roleForDiscordUser(message.author.id, config)
-    },
-    runtime
+  if (tracksRequestStatus) {
+    await addDiscordRequestStatusReaction(message, "accepted", logger);
+    await addDiscordRequestStatusReaction(message, "inProgress", logger);
+  }
+
+  const gitSnapshot = await captureGitApprovalSnapshot(
+    runtime,
+    tracksRequestStatus,
+    logger
   );
+
+  try {
+    const result = await handleRuntimeDiscordMessage(
+      {
+        id: message.id,
+        authorId: message.author.id,
+        channelId: message.channelId,
+        guildId: message.guildId ?? undefined,
+        content: message.content,
+        isBot: message.author.bot,
+        isDirectMessage: message.guildId === null,
+        mentionedUserIds,
+        sessionId: message.channelId,
+        userRole: roleForDiscordUser(message.author.id, config)
+      },
+      runtime
+    );
+
+    await handleGatewayMessageResult(
+      message,
+      result,
+      runtime,
+      logger,
+      tracksRequestStatus,
+      gitSnapshot
+    );
+  } catch (error) {
+    if (tracksRequestStatus) {
+      await addDiscordRequestStatusReaction(message, "failed", logger);
+    }
+
+    throw error;
+  }
+}
+
+async function handleGatewayMessageResult(
+  message: Message,
+  result: Awaited<ReturnType<typeof handleRuntimeDiscordMessage>>,
+  runtime: LocalRuntime,
+  logger: DiscordGatewayLogger,
+  tracksRequestStatus: boolean,
+  gitSnapshot: GitApprovalSnapshot | undefined
+): Promise<void> {
 
   if (result.status === 202) {
     logger.info(
@@ -199,6 +279,9 @@ async function handleGatewayMessage(
     logger.error(
       `Discord message rejected. messageId=${message.id} status=${result.status} error=${result.body.error ?? "unknown"}`
     );
+    if (tracksRequestStatus) {
+      await addDiscordRequestStatusReaction(message, "failed", logger);
+    }
     return;
   }
 
@@ -213,6 +296,10 @@ async function handleGatewayMessage(
       ].join(" ")
     );
     await sendDiscordThreadReply(message, result.body.answer, logger);
+    await recordGitApprovalCandidate(runtime, gitSnapshot, message, logger);
+    if (tracksRequestStatus) {
+      await addDiscordRequestStatusReaction(message, "completed", logger);
+    }
     logger.info(`Discord thread reply sent. messageId=${message.id}`);
     return;
   }
@@ -227,6 +314,10 @@ async function handleGatewayMessage(
       ].join(" ")
     );
     await sendDiscordThreadReply(message, result.body.content, logger);
+    await recordGitApprovalCandidate(runtime, gitSnapshot, message, logger);
+    if (tracksRequestStatus) {
+      await addDiscordRequestStatusReaction(message, "completed", logger);
+    }
     logger.info(`Discord schedule reply sent. messageId=${message.id}`);
     return;
   }
@@ -245,6 +336,67 @@ async function handleGatewayMessage(
   logger.info(
     `Discord message produced no reply. messageId=${message.id} kind=${result.body.kind ?? "unknown"}`
   );
+  if (tracksRequestStatus) {
+    await addDiscordRequestStatusReaction(message, "failed", logger);
+  }
+}
+
+function shouldTrackMentionRequestStatus(
+  message: Message,
+  config: RuntimeConfig,
+  mentionedUserIds: readonly string[]
+): boolean {
+  const route = routeDiscordMessage(
+    {
+      id: message.id,
+      authorId: message.author.id,
+      channelId: message.channelId,
+      content: message.content,
+      isBot: message.author.bot,
+      isDirectMessage: message.guildId === null,
+      mentionedUserIds
+    },
+    config.discord
+  );
+
+  return route.kind === "chat";
+}
+
+async function captureGitApprovalSnapshot(
+  runtime: LocalRuntime,
+  tracksRequestStatus: boolean,
+  logger: DiscordGatewayLogger
+): Promise<GitApprovalSnapshot | undefined> {
+  if (!tracksRequestStatus) {
+    return undefined;
+  }
+
+  try {
+    return await runtime.gitApproval.captureBeforeRequest();
+  } catch (error) {
+    logger.error("Git approval snapshot failed.", error);
+    return undefined;
+  }
+}
+
+async function recordGitApprovalCandidate(
+  runtime: LocalRuntime,
+  snapshot: GitApprovalSnapshot | undefined,
+  message: Message,
+  logger: DiscordGatewayLogger
+): Promise<void> {
+  if (!snapshot?.enabled) {
+    return;
+  }
+
+  try {
+    await runtime.gitApproval.recordRequestResult(snapshot, {
+      messageId: message.id,
+      requesterUserId: message.author.id
+    });
+  } catch (error) {
+    logger.error(`Git approval candidate tracking failed. messageId=${message.id}`, error);
+  }
 }
 
 function extractRawMentionedUserIds(content: string): readonly string[] {
@@ -346,6 +498,11 @@ async function handleGatewayInteraction(
     return;
   }
 
+  if (interaction.commandName === "작업승인") {
+    await approvePendingGitWork(interaction, runtime, config);
+    return;
+  }
+
   if (interaction.commandName !== "status" && interaction.commandName !== "config") {
     return;
   }
@@ -356,6 +513,30 @@ async function handleGatewayInteraction(
   });
 
   await replyEphemeral(interaction, response.content, response.ephemeral);
+}
+
+async function approvePendingGitWork(
+  interaction: ChatInputCommandInteraction,
+  runtime: LocalRuntime,
+  config: RuntimeConfig
+): Promise<void> {
+  const userRole = roleForInteraction(interaction, config);
+
+  if (!can(userRole, "system:configure")) {
+    await replyEphemeral(interaction, "권한이 없습니다.", true);
+    return;
+  }
+
+  await interaction.deferReply({
+    ephemeral: true
+  });
+
+  const result = await runtime.gitApproval.approve({
+    approverUserId: interaction.user.id,
+    commitMessage: interaction.options.getString("message") ?? undefined
+  });
+
+  await replyEphemeral(interaction, result.content, true);
 }
 
 async function showScheduleModal(
