@@ -663,12 +663,19 @@ function roleForInteraction(
   return roleForDiscordUser(interaction.user.id, config);
 }
 
-async function replyEphemeral(
+export async function replyEphemeral(
   interaction: ChatInputCommandInteraction,
   content: string,
   ephemeral: boolean
 ): Promise<void> {
-  if (interaction.replied || interaction.deferred) {
+  if (interaction.deferred && !interaction.replied) {
+    await interaction.editReply({
+      content: truncateDiscordContent(content)
+    });
+    return;
+  }
+
+  if (interaction.replied) {
     await interaction.followUp({
       content: truncateDiscordContent(content),
       ephemeral

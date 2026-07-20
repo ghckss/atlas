@@ -9,6 +9,7 @@ import {
   formatDiscordGatewayErrorReply,
   formatDiscordThreadName,
   loadRuntimeConfig,
+  replyEphemeral,
   roleForDiscordUser,
   sendDiscordThreadReply,
   truncateDiscordContent
@@ -186,6 +187,29 @@ test("Discord Gateway falls back to channel replies when thread creation fails",
   await sendDiscordThreadReply(message as never, "fallback", silentLogger);
 
   assert.deepEqual(replies, ["fallback"]);
+});
+
+test("Discord Gateway edits deferred interaction replies", async () => {
+  const edits: string[] = [];
+  const followUps: string[] = [];
+  const interaction = {
+    deferred: true,
+    replied: false,
+    async editReply(input: { content: string }) {
+      edits.push(input.content);
+    },
+    async followUp(input: { content: string }) {
+      followUps.push(input.content);
+    },
+    async reply() {
+      throw new Error("deferred interactions must be edited");
+    }
+  };
+
+  await replyEphemeral(interaction as never, "승인 결과", true);
+
+  assert.deepEqual(edits, ["승인 결과"]);
+  assert.deepEqual(followUps, []);
 });
 
 const silentLogger = {
