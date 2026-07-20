@@ -16,7 +16,6 @@ import {
 
 const config = loadRuntimeConfig({
   DISCORD_BOT_USER_ID: "bot-1",
-  DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
   DISCORD_OWNER_USER_IDS: "owner-1",
   N8N_WEBHOOK_SECRET: "secret"
 });

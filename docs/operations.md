@@ -9,7 +9,6 @@
 - `DISCORD_APPLICATION_ID`
 - `DISCORD_ENABLE_GATEWAY`
 - `DISCORD_GUILD_ID`
-- `DISCORD_DEDICATED_CHANNEL_ID`
 - `DISCORD_OWNER_USER_IDS`
 - `LLM_PROVIDER`
 - `LLM_LOG_FILE`
@@ -25,6 +24,7 @@
 - `CODEX_CLI_LOCAL_PROVIDER`
 - `DISCORD_GIT_APPROVAL_ENABLED`
 - `DISCORD_GIT_APPROVAL_WORKDIR`
+- `DISCORD_GIT_APPROVAL_WORKSPACE_ROOTS`
 - `DISCORD_GIT_APPROVAL_REMOTE`
 - `DISCORD_GIT_APPROVAL_DEFAULT_COMMIT_MESSAGE`
 - `LLM_REQUEST_TIMEOUT_MS`
@@ -58,12 +58,12 @@
 
 ## Discord 운영
 
-- 전용 채널에서 bot mention이 있는 메시지만 chat으로 처리한다.
-- 일반 채널 메시지는 무시한다.
+- 봇이 접근 가능한 서버 내 모든 채널에서 bot mention이 있는 메시지만 chat으로 처리한다.
+- bot mention이 없는 일반 채널 메시지는 무시한다.
 - DM은 Owner 개인 작업이나 민감한 응답에 한해 제한적으로 처리한다.
 - 설정 변경과 시스템 변경은 Owner 권한으로 제한한다.
 - `/일정` slash command는 일정 추가 모달을 열고, 입력된 일정은 Google Calendar에 직접 저장한다.
-- `/작업승인` slash command는 Owner 전용이며, 봇이 남긴 승인 대기 변경사항을 commit 후 push한다.
+- `/작업승인` slash command는 Owner 전용이며, 봇이 남긴 승인 대기 변경사항을 저장소별로 commit 후 push한다.
 - 자연어 일정 조회와 정기 브리핑은 Google Calendar의 실제 이벤트를 읽는다.
 
 Discord slash command를 등록하거나 갱신하려면 다음 명령을 실행한다. `DISCORD_GUILD_ID`가 있으면 해당 서버에만 빠르게 반영하고, 없으면 global command로 등록한다.
@@ -114,23 +114,24 @@ CODEX_CLI_COMMAND=codex
 CODEX_CLI_MODEL=
 CODEX_CLI_PROFILE=
 CODEX_CLI_SANDBOX=read-only
-CODEX_CLI_WORKDIR=/Users/hwanghochan/workspace/private/ai-assistant-platform
+CODEX_CLI_WORKDIR=/Users/hwanghochan/workspace
 LLM_REQUEST_TIMEOUT_MS=120000
 ```
 
-Codex CLI provider는 `codex exec`를 stdin 기반으로 실행하고 최종 메시지만 Discord 응답으로 사용한다. 기본값은 `read-only` sandbox이므로 답변 생성 중 파일을 수정하지 않는다. 저장소 파일 분석까지 CLI에 맡기고 싶을 때만 `CODEX_CLI_WORKDIR`를 프로젝트 경로로 지정한다.
+Codex CLI provider는 `codex exec`를 stdin 기반으로 실행하고 최종 메시지만 Discord 응답으로 사용한다. 기본값은 `read-only` sandbox이므로 답변 생성 중 파일을 수정하지 않는다. 여러 프로젝트 파일 분석까지 CLI에 맡기고 싶을 때는 `CODEX_CLI_WORKDIR`를 `/Users/hwanghochan/workspace`처럼 공통 작업 루트로 지정한다.
 
 Discord 봇이 코드 수정까지 수행하게 하려면 sandbox를 `workspace-write`로 바꾸고 Git 승인 기능을 켠다. Codex CLI는 파일 수정까지만 수행하며, commit/push는 Owner가 `/작업승인` slash command를 실행했을 때만 수행한다.
 
 ```env
 CODEX_CLI_SANDBOX=workspace-write
 DISCORD_GIT_APPROVAL_ENABLED=true
-DISCORD_GIT_APPROVAL_WORKDIR=/Users/hwanghochan/workspace/private/ai-assistant-platform
+DISCORD_GIT_APPROVAL_WORKDIR=
+DISCORD_GIT_APPROVAL_WORKSPACE_ROOTS=/Users/hwanghochan/workspace
 DISCORD_GIT_APPROVAL_REMOTE=origin
 DISCORD_GIT_APPROVAL_DEFAULT_COMMIT_MESSAGE=chore: apply Discord-approved changes
 ```
 
-요청 처리 전에 worktree가 이미 dirty였으면 봇이 변경을 만들더라도 `/작업승인`은 자동 commit/push를 차단한다. 기존 변경과 봇 변경을 안전하게 분리할 수 없기 때문이다.
+`DISCORD_GIT_APPROVAL_WORKSPACE_ROOTS`를 설정하면 root 아래 git 저장소를 탐색하고, 해당 요청으로 실제 변경된 저장소만 `/작업승인` 후보가 된다. 요청 처리 전에 변경 대상 저장소가 이미 dirty였으면 봇이 변경을 만들더라도 자동 commit/push를 차단한다. 기존 변경과 봇 변경을 안전하게 분리할 수 없기 때문이다.
 
 Ollama 또는 LM Studio 같은 Codex CLI의 OSS/local provider를 쓰려면 다음 값을 추가한다.
 
@@ -209,7 +210,7 @@ pnpm dev
 
 초기 runtime은 HTTP endpoint로 Discord/n8n 경계를 시뮬레이션할 수 있고, `DISCORD_ENABLE_GATEWAY=true`일 때 실제 Discord Gateway adapter도 함께 실행한다.
 
-실제 Discord Gateway를 켜려면 `DISCORD_ENABLE_GATEWAY=true`를 설정한다. Bot token, bot user id, dedicated channel id가 필요하며, Discord Developer Portal에서 Message Content Intent를 활성화해야 한다.
+실제 Discord Gateway를 켜려면 `DISCORD_ENABLE_GATEWAY=true`를 설정한다. Bot token과 bot user id가 필요하며, Discord Developer Portal에서 Message Content Intent를 활성화해야 한다.
 
 뉴스 수집은 `GET /news/articles`에서 확인할 수 있다.
 

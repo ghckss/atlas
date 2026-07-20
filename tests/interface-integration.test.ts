@@ -16,10 +16,9 @@ import {
 } from "../src";
 import type { ScheduleBriefingRequest } from "../src";
 
-test("Discord router only accepts mentions in the dedicated channel", () => {
+test("Discord router accepts mentions from any guild channel", () => {
   const config = {
     botUserId: "bot-1",
-    dedicatedChannelId: "channel-1",
     ownerUserIds: ["owner-1"]
   };
 
@@ -37,8 +36,8 @@ test("Discord router only accepts mentions in the dedicated channel", () => {
       config
     ),
     {
-      kind: "ignore",
-      reason: "outside-dedicated-channel"
+      kind: "chat",
+      content: "hello"
     }
   );
 
@@ -101,7 +100,6 @@ test("Discord router only accepts mentions in the dedicated channel", () => {
 test("Discord DMs are limited to owners", () => {
   const config = {
     botUserId: "bot-1",
-    dedicatedChannelId: "channel-1",
     ownerUserIds: ["owner-1"]
   };
 

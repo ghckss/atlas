@@ -1,11 +1,16 @@
 import { spawn } from "node:child_process";
+import type { Dirent } from "node:fs";
+import { readdir } from "node:fs/promises";
+import { resolve } from "node:path";
 
 export interface GitApprovalServiceOptions {
   enabled?: boolean;
   workdir?: string;
+  workspaceRoots?: readonly string[];
   remote?: string;
   defaultCommitMessage?: string;
   commandExecutor?: GitCommandExecutor;
+  repositoryFinder?: GitRepositoryFinder;
 }
 
 export interface GitCommandExecutorInput {
@@ -26,9 +31,22 @@ export type GitCommandExecutor = (
   input: GitCommandExecutorInput
 ) => Promise<GitCommandExecutorResult>;
 
+export type GitRepositoryFinder = (
+  roots: readonly string[]
+) => Promise<readonly string[]>;
+
+export interface GitApprovalRepositorySnapshot {
+  workdir: string;
+  branch?: string;
+  statusLines: readonly string[];
+  reason?: string;
+}
+
 export interface GitApprovalSnapshot {
   enabled: boolean;
   workdir?: string;
+  workspaceRoots?: readonly string[];
+  repositories: readonly GitApprovalRepositorySnapshot[];
   branch?: string;
   statusLines: readonly string[];
   reason?: string;
@@ -56,10 +74,16 @@ export interface GitApprovalApproveResult {
 }
 
 interface PendingGitApproval {
-  approvable: boolean;
   sourceMessageId: string;
   requesterUserId: string;
   createdAt: string;
+  statusCount: number;
+  repositories: readonly PendingGitApprovalRepository[];
+}
+
+interface PendingGitApprovalRepository {
+  approvable: boolean;
+  workdir: string;
   branch?: string;
   statusCount: number;
   reason?: string;
@@ -70,53 +94,96 @@ const DEFAULT_REMOTE = "origin";
 const DEFAULT_COMMIT_MESSAGE = "chore: apply Discord-approved changes";
 const DEFAULT_TIMEOUT_MS = 120000;
 const MAX_CAPTURE_BYTES = 65536;
+const REPOSITORY_DISCOVERY_MAX_DEPTH = 5;
+const SKIPPED_DISCOVERY_DIRECTORIES = new Set([
+  ".git",
+  ".next",
+  ".turbo",
+  ".venv",
+  "build",
+  "coverage",
+  "dist",
+  "node_modules",
+  "out",
+  "target",
+  "vendor"
+]);
 
 export class GitApprovalService {
   private readonly enabled: boolean;
   private readonly workdir?: string;
+  private readonly workspaceRoots: readonly string[];
   private readonly remote: string;
   private readonly defaultCommitMessage: string;
   private readonly commandExecutor: GitCommandExecutor;
+  private readonly repositoryFinder: GitRepositoryFinder;
   private pending?: PendingGitApproval;
 
   constructor(options: GitApprovalServiceOptions = {}) {
     this.enabled = options.enabled ?? false;
     this.workdir = options.workdir?.trim() || undefined;
+    this.workspaceRoots = uniquePaths(options.workspaceRoots ?? []);
     this.remote = options.remote?.trim() || DEFAULT_REMOTE;
     this.defaultCommitMessage =
       normalizeCommitMessage(options.defaultCommitMessage) ??
       DEFAULT_COMMIT_MESSAGE;
     this.commandExecutor = options.commandExecutor ?? runGitCommand;
+    this.repositoryFinder = options.repositoryFinder ?? findGitRepositories;
   }
 
   async captureBeforeRequest(): Promise<GitApprovalSnapshot> {
     if (!this.enabled) {
       return {
         enabled: false,
+        repositories: [],
         statusLines: [],
         reason: "git approval disabled"
       };
     }
 
-    if (!this.workdir) {
+    if (!this.hasConfiguredTargets()) {
       return {
         enabled: false,
+        workspaceRoots: this.workspaceRoots,
+        repositories: [],
         statusLines: [],
-        reason: "git approval workdir missing"
+        reason: "git approval workdir or workspace roots missing"
       };
     }
 
     try {
+      const workdirs = await this.resolveWorkdirs();
+      const repositories = await this.captureRepositories(workdirs);
+      const trackedRepositories = repositories.filter(
+        (repository) => repository.reason === undefined
+      );
+      const firstRepository = trackedRepositories[0];
+
+      if (trackedRepositories.length === 0) {
+        return {
+          enabled: false,
+          workdir: this.workdir,
+          workspaceRoots: this.workspaceRoots,
+          repositories,
+          statusLines: [],
+          reason: "no git repositories found for git approval"
+        };
+      }
+
       return {
         enabled: true,
-        workdir: this.workdir,
-        branch: await this.currentBranch(),
-        statusLines: await this.statusLines()
+        workdir: firstRepository?.workdir,
+        workspaceRoots: this.workspaceRoots,
+        repositories: trackedRepositories,
+        branch: firstRepository?.branch,
+        statusLines: flattenStatusLines(trackedRepositories)
       };
     } catch (error) {
       return {
         enabled: false,
         workdir: this.workdir,
+        workspaceRoots: this.workspaceRoots,
+        repositories: [],
         statusLines: [],
         reason: error instanceof Error ? error.message : String(error)
       };
@@ -127,38 +194,76 @@ export class GitApprovalService {
     snapshot: GitApprovalSnapshot,
     metadata: GitApprovalRequestMetadata
   ): Promise<void> {
-    if (!snapshot.enabled || !this.enabled || !this.workdir) {
+    if (!snapshot.enabled || !this.enabled || !this.hasConfiguredTargets()) {
       return;
     }
 
-    const statusLines = await this.statusLines();
+    const beforeByWorkdir = new Map(
+      snapshot.repositories.map((repository) => [repository.workdir, repository])
+    );
+    const repositories = await this.captureRepositories(await this.resolveWorkdirs());
+    const changedRepositories: PendingGitApprovalRepository[] = [];
 
-    if (sameStatus(snapshot.statusLines, statusLines)) {
+    for (const repository of repositories) {
+      if (repository.reason) {
+        continue;
+      }
+
+      const before = beforeByWorkdir.get(repository.workdir);
+
+      if (!before) {
+        if (repository.statusLines.length > 0) {
+          changedRepositories.push({
+            approvable: false,
+            workdir: repository.workdir,
+            branch: repository.branch,
+            statusCount: repository.statusLines.length,
+            reason: "repository was not tracked before the bot request"
+          });
+        }
+        continue;
+      }
+
+      if (sameStatus(before.statusLines, repository.statusLines)) {
+        continue;
+      }
+
+      changedRepositories.push({
+        approvable: before.statusLines.length === 0,
+        workdir: repository.workdir,
+        branch: repository.branch,
+        statusCount: repository.statusLines.length,
+        reason:
+          before.statusLines.length === 0
+            ? undefined
+            : "worktree was already dirty before the bot request"
+      });
+    }
+
+    if (changedRepositories.length === 0) {
       return;
     }
 
     this.pending = {
-      approvable: snapshot.statusLines.length === 0,
       sourceMessageId: metadata.messageId,
       requesterUserId: metadata.requesterUserId,
       createdAt: new Date().toISOString(),
-      branch: await this.currentBranch(),
-      statusCount: statusLines.length,
-      reason:
-        snapshot.statusLines.length === 0
-          ? undefined
-          : "worktree was already dirty before the bot request"
+      statusCount: changedRepositories.reduce(
+        (sum, repository) => sum + repository.statusCount,
+        0
+      ),
+      repositories: changedRepositories
     };
   }
 
   async approve(
     input: GitApprovalApproveInput
   ): Promise<GitApprovalApproveResult> {
-    if (!this.enabled || !this.workdir) {
+    if (!this.enabled || !this.hasConfiguredTargets()) {
       return {
         status: "disabled",
         content:
-          "Git 승인 기능이 비활성화되어 있습니다. `.env`의 `DISCORD_GIT_APPROVAL_ENABLED=true`와 workdir 설정을 확인해주세요."
+          "Git 승인 기능이 비활성화되어 있습니다. `.env`의 `DISCORD_GIT_APPROVAL_ENABLED=true`와 workdir 또는 workspace roots 설정을 확인해주세요."
       };
     }
 
@@ -169,17 +274,32 @@ export class GitApprovalService {
       };
     }
 
-    if (!this.pending.approvable) {
+    const blockedRepositories = this.pending.repositories.filter(
+      (repository) => !repository.approvable
+    );
+
+    if (blockedRepositories.length > 0) {
       return {
         status: "blocked",
-        content:
-          "이 작업은 자동 commit/push 대상이 아닙니다. 봇 요청 전에 이미 변경사항이 있어 기존 변경과 분리할 수 없습니다."
+        content: [
+          "이 작업은 자동 commit/push 대상이 아닙니다. 봇 요청 전에 이미 변경사항이 있거나 스냅샷되지 않은 저장소가 있어 기존 변경과 분리할 수 없습니다.",
+          formatRepositorySummary(blockedRepositories)
+        ].join("\n")
       };
     }
 
-    const statusLines = await this.statusLines();
+    const currentStatuses = await Promise.all(
+      this.pending.repositories.map(async (repository) => ({
+        repository,
+        statusLines: await this.statusLines(repository.workdir)
+      }))
+    );
+    const repositoriesWithChanges = currentStatuses.filter(
+      ({ repository, statusLines }) =>
+        statusLines.length > 0 || repository.committedHash
+    );
 
-    if (statusLines.length === 0 && !this.pending.committedHash) {
+    if (repositoriesWithChanges.length === 0) {
       this.pending = undefined;
       return {
         status: "no-changes",
@@ -189,41 +309,92 @@ export class GitApprovalService {
 
     const commitMessage =
       normalizeCommitMessage(input.commitMessage) ?? this.defaultCommitMessage;
-    const branch = await this.currentBranch();
-    let committedHash = this.pending.committedHash;
+    const committedRepositories: PendingGitApprovalRepository[] = [];
 
-    if (!committedHash) {
-      await this.git(["add", "-A"]);
-      await this.git(["commit", "-m", commitMessage]);
-      committedHash = (await this.git(["rev-parse", "--short", "HEAD"])).stdout.trim();
-      this.pending = {
-        ...this.pending,
+    for (const { repository, statusLines } of repositoriesWithChanges) {
+      const branch = await this.currentBranch(repository.workdir);
+      let committedHash = repository.committedHash;
+
+      if (!committedHash && statusLines.length > 0) {
+        await this.git(repository.workdir, ["add", "-A"]);
+        await this.git(repository.workdir, ["commit", "-m", commitMessage]);
+        committedHash = (
+          await this.git(repository.workdir, ["rev-parse", "--short", "HEAD"])
+        ).stdout.trim();
+      }
+
+      committedRepositories.push({
+        ...repository,
         branch,
         committedHash
-      };
+      });
     }
 
+    this.pending = {
+      ...this.pending,
+      repositories: committedRepositories
+    };
+
     try {
-      await this.git(["push", this.remote, "HEAD"]);
+      for (const repository of committedRepositories) {
+        await this.git(repository.workdir, ["push", this.remote, "HEAD"]);
+      }
       this.pending = undefined;
 
       return {
         status: "pushed",
-        content: `작업 승인 완료: commit ${committedHash} 후 ${this.remote}/${branch}로 push했습니다.`
+        content: formatPushedContent(this.remote, committedRepositories)
       };
     } catch (error) {
       return {
         status: "push-failed",
         content: [
-          `commit ${committedHash}는 완료됐지만 push에 실패했습니다.`,
+          `commit은 완료됐지만 push에 실패했습니다.`,
+          formatRepositorySummary(committedRepositories),
           error instanceof Error ? error.message : String(error)
         ].join("\n")
       };
     }
   }
 
-  private async statusLines(): Promise<readonly string[]> {
-    const result = await this.git(["status", "--porcelain=v1"]);
+  private hasConfiguredTargets(): boolean {
+    return this.workspaceRoots.length > 0 || this.workdir !== undefined;
+  }
+
+  private async resolveWorkdirs(): Promise<readonly string[]> {
+    if (this.workspaceRoots.length > 0) {
+      return uniquePaths(await this.repositoryFinder(this.workspaceRoots));
+    }
+
+    return this.workdir ? [this.workdir] : [];
+  }
+
+  private async captureRepositories(
+    workdirs: readonly string[]
+  ): Promise<readonly GitApprovalRepositorySnapshot[]> {
+    const repositories: GitApprovalRepositorySnapshot[] = [];
+
+    for (const workdir of workdirs) {
+      try {
+        repositories.push({
+          workdir,
+          branch: await this.currentBranch(workdir),
+          statusLines: await this.statusLines(workdir)
+        });
+      } catch (error) {
+        repositories.push({
+          workdir,
+          statusLines: [],
+          reason: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
+    return repositories;
+  }
+
+  private async statusLines(workdir: string): Promise<readonly string[]> {
+    const result = await this.git(workdir, ["status", "--porcelain=v1"]);
 
     return result.stdout
       .split(/\r?\n/)
@@ -231,20 +402,19 @@ export class GitApprovalService {
       .filter((line) => line.length > 0);
   }
 
-  private async currentBranch(): Promise<string> {
-    const result = await this.git(["rev-parse", "--abbrev-ref", "HEAD"]);
+  private async currentBranch(workdir: string): Promise<string> {
+    const result = await this.git(workdir, ["rev-parse", "--abbrev-ref", "HEAD"]);
 
     return result.stdout.trim() || "HEAD";
   }
 
-  private async git(args: readonly string[]): Promise<GitCommandExecutorResult> {
-    if (!this.workdir) {
-      throw new Error("Git approval workdir is not configured.");
-    }
-
+  private async git(
+    workdir: string,
+    args: readonly string[]
+  ): Promise<GitCommandExecutorResult> {
     const result = await this.commandExecutor({
       args,
-      cwd: this.workdir,
+      cwd: workdir,
       timeoutMs: DEFAULT_TIMEOUT_MS
     });
 
@@ -254,6 +424,25 @@ export class GitApprovalService {
 
     return result;
   }
+}
+
+function uniquePaths(paths: readonly string[]): readonly string[] {
+  return [
+    ...new Set(
+      paths
+        .map((path) => path.trim())
+        .filter((path) => path.length > 0)
+        .map((path) => resolve(path))
+    )
+  ];
+}
+
+function flattenStatusLines(
+  repositories: readonly GitApprovalRepositorySnapshot[]
+): readonly string[] {
+  return repositories.flatMap((repository) =>
+    repository.statusLines.map((line) => `${repository.workdir}:${line}`)
+  );
 }
 
 function sameStatus(
@@ -267,6 +456,86 @@ function normalizeCommitMessage(value: string | undefined): string | undefined {
   const normalized = value?.replace(/\s+/g, " ").trim();
 
   return normalized || undefined;
+}
+
+async function findGitRepositories(
+  roots: readonly string[]
+): Promise<readonly string[]> {
+  const repositories: string[] = [];
+
+  for (const root of roots) {
+    await collectGitRepositories(root, 0, repositories);
+  }
+
+  return uniquePaths(repositories);
+}
+
+async function collectGitRepositories(
+  directory: string,
+  depth: number,
+  repositories: string[]
+): Promise<void> {
+  let entries: Dirent[];
+
+  try {
+    entries = await readdir(directory, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  if (entries.some((entry) => entry.isDirectory() && entry.name === ".git")) {
+    repositories.push(resolve(directory));
+    return;
+  }
+
+  if (depth >= REPOSITORY_DISCOVERY_MAX_DEPTH) {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (
+      !entry.isDirectory() ||
+      SKIPPED_DISCOVERY_DIRECTORIES.has(entry.name)
+    ) {
+      continue;
+    }
+
+    await collectGitRepositories(resolve(directory, entry.name), depth + 1, repositories);
+  }
+}
+
+function formatPushedContent(
+  remote: string,
+  repositories: readonly PendingGitApprovalRepository[]
+): string {
+  if (repositories.length === 1) {
+    const repository = repositories[0];
+
+    return `작업 승인 완료: ${repository.workdir}에서 commit ${repository.committedHash ?? "unknown"} 후 ${remote}/${repository.branch ?? "HEAD"}로 push했습니다.`;
+  }
+
+  return [
+    `작업 승인 완료: ${repositories.length}개 저장소를 commit 후 push했습니다.`,
+    formatRepositorySummary(repositories)
+  ].join("\n");
+}
+
+function formatRepositorySummary(
+  repositories: readonly PendingGitApprovalRepository[]
+): string {
+  return repositories
+    .map((repository) =>
+      [
+        `- ${repository.workdir}`,
+        repository.branch ? `branch=${repository.branch}` : undefined,
+        repository.committedHash ? `commit=${repository.committedHash}` : undefined,
+        `changes=${repository.statusCount}`,
+        repository.reason ? `reason=${repository.reason}` : undefined
+      ]
+        .filter(Boolean)
+        .join(" ")
+    )
+    .join("\n");
 }
 
 async function runGitCommand(

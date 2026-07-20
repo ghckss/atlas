@@ -20,7 +20,7 @@ export interface WorkflowAsset {
 
 export const newsBriefingWorkflow: WorkflowAsset = {
   id: "news-briefing",
-  purpose: "뉴스를 수집하고 Hermes 요약을 거쳐 Discord 전용 채널로 전송한다.",
+  purpose: "뉴스를 수집하고 Hermes 요약을 거쳐 Discord 지정 채널로 전송한다.",
   trigger: "scheduler",
   jsonExportPath: "workflows/news-briefing/news-briefing.n8n.json",
   documentationPath: "workflows/news-briefing/README.md",
@@ -49,7 +49,7 @@ export const newsBriefingWorkflow: WorkflowAsset = {
 
 export const scheduleBriefingWorkflow: WorkflowAsset = {
   id: "schedule-briefing",
-  purpose: "등록된 일정을 조회해 매일 및 매월 Discord 전용 채널로 요약 전송한다.",
+  purpose: "등록된 일정을 조회해 매일 및 매월 Discord 지정 채널로 요약 전송한다.",
   trigger: "scheduler",
   jsonExportPath: "workflows/schedule-briefing/schedule-briefing.n8n.json",
   documentationPath: "workflows/schedule-briefing/README.md",

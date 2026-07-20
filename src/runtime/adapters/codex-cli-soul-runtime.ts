@@ -327,6 +327,7 @@ function buildCodexPrompt(
   const fileInstructions = options.allowFileChanges
     ? [
         "You may modify files in the configured workspace when needed to satisfy the user request.",
+        "The configured workspace may contain multiple git repositories; choose the repository that matches the user's request.",
         "Do not run git commit, git push, git reset, or git checkout.",
         "Leave repository changes in the worktree; the Discord owner approval command handles commit and push."
       ]

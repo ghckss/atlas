@@ -13,7 +13,6 @@ import {
 const config = loadRuntimeConfig({
   PORT: "3000",
   DISCORD_BOT_USER_ID: "bot-1",
-  DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
   DISCORD_OWNER_USER_IDS: "owner-1",
   N8N_WEBHOOK_SECRET: "secret"
 });
@@ -39,7 +38,7 @@ test("local runtime health endpoint reports readiness", async () => {
   });
 });
 
-test("local runtime handles dedicated Discord mention through Hermes", async () => {
+test("local runtime handles Discord mention through Hermes", async () => {
   const response = await handleRuntimeHttpRequest(
     {
       method: "POST",
@@ -103,7 +102,6 @@ test("runtime answers schedule mentions from Google Calendar before LLM", async 
   const runtime = {
     discord: {
       botUserId: "bot-1",
-      dedicatedChannelId: "channel-1",
       ownerUserIds: []
     },
     scheduleTimezone: "Asia/Seoul",
@@ -235,7 +233,6 @@ function configToEnv(): Record<string, string> {
   return {
     PORT: "3000",
     DISCORD_BOT_USER_ID: "bot-1",
-    DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
     DISCORD_OWNER_USER_IDS: "owner-1",
     N8N_WEBHOOK_SECRET: "secret"
   };

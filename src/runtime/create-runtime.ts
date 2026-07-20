@@ -63,12 +63,12 @@ export function createLocalRuntime(config: RuntimeConfig): LocalRuntime {
     scheduleTimezone: config.schedule.timezone,
     discord: {
       botUserId: config.discord.botUserId,
-      dedicatedChannelId: config.discord.dedicatedChannelId,
       ownerUserIds: config.discord.ownerUserIds
     },
     gitApproval: new GitApprovalService({
       enabled: config.gitApproval.enabled,
       workdir: config.gitApproval.workdir,
+      workspaceRoots: config.gitApproval.workspaceRoots,
       remote: config.gitApproval.remote,
       defaultCommitMessage: config.gitApproval.defaultCommitMessage
     })

@@ -134,7 +134,7 @@ export async function startDiscordGateway(
 
   const client = createDiscordGatewayClient(runtime, config, logger);
   logger.info(
-    `Discord Gateway login starting. botUserId=${config.discord.botUserId} dedicatedChannelId=${config.discord.dedicatedChannelId}`
+    `Discord Gateway login starting. botUserId=${config.discord.botUserId}`
   );
   await client.login(config.discord.token);
   return client;

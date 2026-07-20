@@ -10,7 +10,7 @@ PostgreSQL은 영구 데이터를 저장한다. Chat History, Long-term Memory, 
 
 pgvector는 Long-term Memory 검색을 담당한다. 초기 스키마는 OpenAI `text-embedding-3-small` 기본 차원인 1536을 기준으로 둔다.
 
-Discord는 기본 사용자 인터페이스이다. 초기 버전은 전용 채널 mention 기반 대화를 우선하고, slash command는 상태/설정 조회처럼 고정 형식 기능에 사용한다.
+Discord는 기본 사용자 인터페이스이다. 봇이 접근 가능한 서버 내 모든 채널에서 mention 기반 대화를 처리하고, mention 없는 일반 메시지는 수집하거나 응답하지 않는다. slash command는 상태/설정 조회처럼 고정 형식 기능에 사용한다.
 
 MCP 연동은 adapter 뒤에 둔다. GitHub MCP와 Filesystem MCP는 Hermes가 직접 외부 구현에 결합하지 않도록 policy와 port를 먼저 통과한다.
 

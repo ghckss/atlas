@@ -1,6 +1,5 @@
 export interface DiscordInterfaceConfig {
   botUserId: string;
-  dedicatedChannelId: string;
   ownerUserIds: readonly string[];
 }
 
@@ -50,13 +49,6 @@ export function routeDiscordMessage(
     return {
       kind: "admin-dm",
       content: input.content.trim()
-    };
-  }
-
-  if (input.channelId !== config.dedicatedChannelId) {
-    return {
-      kind: "ignore",
-      reason: "outside-dedicated-channel"
     };
   }
 

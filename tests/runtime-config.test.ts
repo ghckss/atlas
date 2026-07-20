@@ -8,7 +8,6 @@ test("runtime config loads required local MVP settings", () => {
     PORT: "3100",
     DISCORD_BOT_USER_ID: "bot-1",
     DISCORD_APPLICATION_ID: "app-1",
-    DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
     DISCORD_OWNER_USER_IDS: "owner-1, owner-2",
     N8N_WEBHOOK_SECRET: "secret",
     N8N_API_URL: "http://localhost:5678",
@@ -39,6 +38,7 @@ test("runtime config loads required local MVP settings", () => {
     CODEX_CLI_LOCAL_PROVIDER: "ollama",
     DISCORD_GIT_APPROVAL_ENABLED: "true",
     DISCORD_GIT_APPROVAL_WORKDIR: "/tmp/hermes-git",
+    DISCORD_GIT_APPROVAL_WORKSPACE_ROOTS: "/tmp/workspace, /tmp/teams",
     DISCORD_GIT_APPROVAL_REMOTE: "upstream",
     DISCORD_GIT_APPROVAL_DEFAULT_COMMIT_MESSAGE: "feat: approved bot work",
     LLM_REQUEST_TIMEOUT_MS: "20000",
@@ -81,6 +81,10 @@ test("runtime config loads required local MVP settings", () => {
   assert.equal(config.llm.requestTimeoutMs, 20000);
   assert.equal(config.gitApproval.enabled, true);
   assert.equal(config.gitApproval.workdir, "/tmp/hermes-git");
+  assert.deepEqual(config.gitApproval.workspaceRoots, [
+    "/tmp/workspace",
+    "/tmp/teams"
+  ]);
   assert.equal(config.gitApproval.remote, "upstream");
   assert.equal(
     config.gitApproval.defaultCommitMessage,
@@ -101,7 +105,6 @@ test("runtime config loads required local MVP settings", () => {
 test("runtime config defaults news collection to Google News top stories", () => {
   const config = loadRuntimeConfig({
     DISCORD_BOT_USER_ID: "bot-1",
-    DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
     N8N_WEBHOOK_SECRET: "secret"
   });
 
@@ -111,7 +114,7 @@ test("runtime config defaults news collection to Google News top stories", () =>
   assert.equal(config.news.googleCountry, "KR");
   assert.equal(config.news.maxArticles, 10);
   assert.equal(config.schedule.timezone, "Asia/Seoul");
-  assert.equal(config.schedule.briefingDiscordChannelId, "channel-1");
+  assert.equal(config.schedule.briefingDiscordChannelId, "");
   assert.equal(config.calendar.googleEnabled, false);
   assert.equal(config.calendar.googleCalendarId, "primary");
   assert.equal(config.calendar.googleDefaultEventDurationMinutes, 60);
@@ -123,13 +126,13 @@ test("runtime config defaults news collection to Google News top stories", () =>
   assert.equal(config.llm.codexCliUseOss, false);
   assert.equal(config.gitApproval.enabled, false);
   assert.equal(config.gitApproval.workdir, undefined);
+  assert.deepEqual(config.gitApproval.workspaceRoots, []);
   assert.equal(config.gitApproval.remote, "origin");
 });
 
 test("runtime config supports Codex CLI as an LLM provider", () => {
   const config = loadRuntimeConfig({
     DISCORD_BOT_USER_ID: "bot-1",
-    DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
     N8N_WEBHOOK_SECRET: "secret",
     LLM_PROVIDER: "codex"
   });
@@ -142,7 +145,6 @@ test("runtime config rejects unsupported news providers", () => {
     () =>
       loadRuntimeConfig({
         DISCORD_BOT_USER_ID: "bot-1",
-        DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
         N8N_WEBHOOK_SECRET: "secret",
         NEWS_PROVIDERS: "custom-news"
       }),
@@ -155,7 +157,6 @@ test("runtime config can enable Discord Gateway with a token", () => {
     DISCORD_BOT_TOKEN: "token",
     DISCORD_BOT_USER_ID: "bot-1",
     DISCORD_ENABLE_GATEWAY: "true",
-    DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
     N8N_WEBHOOK_SECRET: "secret"
   });
 
@@ -169,7 +170,6 @@ test("runtime config rejects invalid port and missing secrets", () => {
       loadRuntimeConfig({
         PORT: "99999",
         DISCORD_BOT_USER_ID: "bot-1",
-        DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
         N8N_WEBHOOK_SECRET: "secret"
       }),
     /PORT/
@@ -177,8 +177,7 @@ test("runtime config rejects invalid port and missing secrets", () => {
   assert.throws(
     () =>
       loadRuntimeConfig({
-        DISCORD_BOT_USER_ID: "bot-1",
-        DISCORD_DEDICATED_CHANNEL_ID: "channel-1"
+        DISCORD_BOT_USER_ID: "bot-1"
       }),
     /N8N_WEBHOOK_SECRET/
   );
@@ -186,7 +185,6 @@ test("runtime config rejects invalid port and missing secrets", () => {
     () =>
       loadRuntimeConfig({
         DISCORD_BOT_USER_ID: "bot-1",
-        DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
         N8N_WEBHOOK_SECRET: "secret",
         LLM_PROVIDER: "unknown"
       }),
@@ -196,7 +194,6 @@ test("runtime config rejects invalid port and missing secrets", () => {
     () =>
       loadRuntimeConfig({
         DISCORD_BOT_USER_ID: "bot-1",
-        DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
         N8N_WEBHOOK_SECRET: "secret",
         GOOGLE_CALENDAR_ENABLED: "true",
         GOOGLE_CALENDAR_CLIENT_ID: "google-client",
@@ -208,7 +205,6 @@ test("runtime config rejects invalid port and missing secrets", () => {
     () =>
       loadRuntimeConfig({
         DISCORD_BOT_USER_ID: "bot-1",
-        DISCORD_DEDICATED_CHANNEL_ID: "channel-1",
         N8N_WEBHOOK_SECRET: "secret",
         CODEX_CLI_SANDBOX: "bad"
       }),

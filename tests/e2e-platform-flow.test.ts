@@ -20,12 +20,12 @@ import type {
   MemorySearchResult
 } from "../src";
 
-test("dedicated Discord mention flows through Hermes with memory and session context", async () => {
+test("Discord mention flows through Hermes with memory and session context", async () => {
   const route = routeDiscordMessage(
     {
       id: "discord-message-1",
       authorId: "user-1",
-      channelId: "dedicated-channel",
+      channelId: "guild-channel",
       content: "<@bot-1> 프로젝트 구조 설명해줘",
       isBot: false,
       isDirectMessage: false,
@@ -33,7 +33,6 @@ test("dedicated Discord mention flows through Hermes with memory and session con
     },
     {
       botUserId: "bot-1",
-      dedicatedChannelId: "dedicated-channel",
       ownerUserIds: ["owner-1"]
     }
   );

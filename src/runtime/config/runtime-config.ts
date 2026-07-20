@@ -24,13 +24,13 @@ export interface RuntimeConfig {
     token?: string;
     botUserId: string;
     guildId?: string;
-    dedicatedChannelId: string;
     ownerUserIds: readonly string[];
     enableGateway: boolean;
   };
   gitApproval: {
     enabled: boolean;
     workdir?: string;
+    workspaceRoots: readonly string[];
     remote: string;
     defaultCommitMessage: string;
   };
@@ -105,10 +105,6 @@ export function loadRuntimeConfig(
       token: env.DISCORD_BOT_TOKEN,
       botUserId: requireValue(env.DISCORD_BOT_USER_ID, "DISCORD_BOT_USER_ID"),
       guildId: env.DISCORD_GUILD_ID,
-      dedicatedChannelId: requireValue(
-        env.DISCORD_DEDICATED_CHANNEL_ID,
-        "DISCORD_DEDICATED_CHANNEL_ID"
-      ),
       ownerUserIds: parseCsv(env.DISCORD_OWNER_USER_IDS),
       enableGateway: env.DISCORD_ENABLE_GATEWAY === "true"
     },
@@ -116,6 +112,7 @@ export function loadRuntimeConfig(
       enabled: parseBoolean(env.DISCORD_GIT_APPROVAL_ENABLED),
       workdir:
         parseOptionalText(env.DISCORD_GIT_APPROVAL_WORKDIR) ?? codexCliWorkdir,
+      workspaceRoots: parseCsv(env.DISCORD_GIT_APPROVAL_WORKSPACE_ROOTS),
       remote: parseOptionalText(env.DISCORD_GIT_APPROVAL_REMOTE) ?? "origin",
       defaultCommitMessage:
         parseOptionalText(env.DISCORD_GIT_APPROVAL_DEFAULT_COMMIT_MESSAGE) ??
@@ -131,10 +128,7 @@ export function loadRuntimeConfig(
       briefingDiscordChannelId:
         env.SCHEDULE_BRIEFING_DISCORD_CHANNEL_ID ??
         env.NEWS_BRIEFING_DISCORD_CHANNEL_ID ??
-        requireValue(
-          env.DISCORD_DEDICATED_CHANNEL_ID,
-          "DISCORD_DEDICATED_CHANNEL_ID"
-        )
+        ""
     },
     calendar: {
       googleEnabled: parseBoolean(env.GOOGLE_CALENDAR_ENABLED),
