@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   addDiscordRequestStatusReaction,
   archiveDiscordThread,
+  buildDiscordThreadConversationContext,
   createDiscordGatewayClient,
   createLocalRuntime,
   DISCORD_REQUEST_STATUS_REACTIONS,
@@ -188,6 +189,59 @@ test("Discord Gateway falls back to channel replies when thread creation fails",
   await sendDiscordThreadReply(message as never, "fallback", silentLogger);
 
   assert.deepEqual(replies, ["fallback"]);
+});
+
+test("Discord Gateway builds conversation context from prior thread messages", async () => {
+  const fetchOptions: Array<{ limit: number; before?: string }> = [];
+  const fetchedMessages = new Map([
+    [
+      "assistant-1",
+      {
+        id: "assistant-1",
+        content: "private/lottimulator 변경 사항은 워크트리에 보존했습니다.",
+        createdTimestamp: 2000,
+        author: { id: "bot-1", bot: true }
+      }
+    ],
+    [
+      "user-1",
+      {
+        id: "user-1",
+        content: "<@bot-1> 매주 월요일 오전 9시에 이 작업 자동화해줘",
+        createdTimestamp: 1000,
+        author: { id: "user-1", bot: false }
+      }
+    ]
+  ]);
+  const message = {
+    id: "current-message",
+    channelId: "thread-1",
+    channel: {
+      id: "thread-1",
+      isThread: () => true,
+      messages: {
+        async fetch(options: { limit: number; before?: string }) {
+          fetchOptions.push(options);
+          return fetchedMessages;
+        }
+      }
+    }
+  };
+
+  const context = await buildDiscordThreadConversationContext(
+    message as never,
+    config,
+    silentLogger
+  );
+
+  assert.deepEqual(fetchOptions, [{ limit: 20, before: "current-message" }]);
+  assert.equal(
+    context,
+    [
+      "user: 매주 월요일 오전 9시에 이 작업 자동화해줘",
+      "assistant: private/lottimulator 변경 사항은 워크트리에 보존했습니다."
+    ].join("\n")
+  );
 });
 
 test("Discord Gateway archives a thread after completed work", async () => {

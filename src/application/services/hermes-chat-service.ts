@@ -18,6 +18,7 @@ export interface HermesChatRequest {
   user: HermesChatUser;
   projectId?: string;
   content: string;
+  conversationContext?: string;
 }
 
 export interface HermesChatResponse {
@@ -70,7 +71,8 @@ export class HermesChatService {
       plan,
       memoryContext: formatHermesContext(
         memory.memories.map((result) => result.record.content),
-        recentMessages
+        recentMessages,
+        request.conversationContext
       )
     });
 
@@ -95,9 +97,14 @@ export class HermesChatService {
 
 function formatHermesContext(
   memories: readonly string[],
-  recentMessages: readonly ChatMessage[]
+  recentMessages: readonly ChatMessage[],
+  conversationContext?: string
 ): string {
   const sections: string[] = [];
+
+  if (conversationContext?.trim()) {
+    sections.push(`[Discord Thread Context]\n${conversationContext.trim()}`);
+  }
 
   if (memories.length > 0) {
     sections.push(["[External Memory]", ...memories].join("\n"));

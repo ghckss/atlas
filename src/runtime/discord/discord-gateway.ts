@@ -42,6 +42,9 @@ interface DiscordReactionTarget {
   react(emoji: string): Promise<unknown>;
 }
 
+const THREAD_CONTEXT_MESSAGE_LIMIT = 20;
+const THREAD_CONTEXT_MAX_CHARS = 6000;
+
 export async function addDiscordRequestStatusReaction(
   message: DiscordReactionTarget,
   status: DiscordRequestStatus,
@@ -224,6 +227,9 @@ async function handleGatewayMessage(
     tracksRequestStatus,
     logger
   );
+  const conversationContext = tracksRequestStatus
+    ? await buildDiscordThreadConversationContext(message, config, logger)
+    : undefined;
 
   try {
     const result = await handleRuntimeDiscordMessage(
@@ -237,7 +243,8 @@ async function handleGatewayMessage(
         isDirectMessage: message.guildId === null,
         mentionedUserIds,
         sessionId: message.channelId,
-        userRole: roleForDiscordUser(message.author.id, config)
+        userRole: roleForDiscordUser(message.author.id, config),
+        conversationContext
       },
       runtime
     );
@@ -401,6 +408,154 @@ async function recordGitApprovalCandidate(
 
 function extractRawMentionedUserIds(content: string): readonly string[] {
   return [...content.matchAll(/<@!?(\d+)>/g)].map((match) => match[1]);
+}
+
+interface DiscordThreadHistoryTarget {
+  id: string;
+  isThread(): boolean;
+  messages?: {
+    fetch(options: { limit: number; before?: string }): Promise<unknown>;
+  };
+}
+
+interface DiscordThreadContextMessage {
+  id?: string;
+  content?: string;
+  createdTimestamp?: number;
+  author?: {
+    id?: string;
+    bot?: boolean;
+    username?: string;
+    tag?: string;
+  };
+}
+
+export async function buildDiscordThreadConversationContext(
+  message: Message,
+  config: RuntimeConfig,
+  logger: DiscordGatewayLogger = console
+): Promise<string | undefined> {
+  if (!isThreadHistoryTarget(message.channel)) {
+    return undefined;
+  }
+
+  try {
+    const fetched = await message.channel.messages.fetch({
+      limit: THREAD_CONTEXT_MESSAGE_LIMIT,
+      before: message.id
+    });
+    const messages = toThreadContextMessages(fetched)
+      .filter((threadMessage) => threadMessage.id !== message.id)
+      .filter((threadMessage) => threadMessage.content?.trim())
+      .sort(
+        (left, right) =>
+          (left.createdTimestamp ?? 0) - (right.createdTimestamp ?? 0)
+      );
+    const lines = messages
+      .map((threadMessage) =>
+        formatThreadContextLine(threadMessage, config.discord.botUserId)
+      )
+      .filter((line): line is string => line !== undefined);
+
+    if (lines.length === 0) {
+      return undefined;
+    }
+
+    const context = truncateThreadContext(lines.join("\n"));
+    logger.info(
+      [
+        "Discord thread context fetched.",
+        `messageId=${message.id}`,
+        `threadId=${message.channel.id}`,
+        `contextMessages=${lines.length}`,
+        `contextLength=${context.length}`
+      ].join(" ")
+    );
+
+    return context;
+  } catch (error) {
+    logger.error(
+      `Discord thread context fetch failed. messageId=${message.id} channelId=${message.channelId}`,
+      error
+    );
+    return undefined;
+  }
+}
+
+function isThreadHistoryTarget(
+  channel: unknown
+): channel is DiscordThreadHistoryTarget {
+  const candidate = channel as Partial<DiscordThreadHistoryTarget> | null;
+
+  return (
+    candidate !== null &&
+    typeof candidate === "object" &&
+    typeof candidate.id === "string" &&
+    typeof candidate.isThread === "function" &&
+    candidate.isThread() &&
+    typeof candidate.messages?.fetch === "function"
+  );
+}
+
+function toThreadContextMessages(
+  value: unknown
+): readonly DiscordThreadContextMessage[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => item as DiscordThreadContextMessage);
+  }
+
+  const values = (value as { values?: () => Iterable<unknown> } | null)?.values;
+
+  if (typeof values === "function") {
+    return [...values.call(value)].map(
+      (item) => item as DiscordThreadContextMessage
+    );
+  }
+
+  if (typeof value === "object" && value !== null) {
+    return Object.values(value).map(
+      (item) => item as DiscordThreadContextMessage
+    );
+  }
+
+  return [];
+}
+
+function formatThreadContextLine(
+  message: DiscordThreadContextMessage,
+  botUserId: string
+): string | undefined {
+  const content = sanitizeThreadMessageContent(message.content ?? "", botUserId);
+
+  if (!content) {
+    return undefined;
+  }
+
+  const role =
+    message.author?.bot || message.author?.id === botUserId ? "assistant" : "user";
+
+  return `${role}: ${content}`;
+}
+
+function sanitizeThreadMessageContent(content: string, botUserId: string): string {
+  return content
+    .replace(new RegExp(`<@!?${escapeRegExp(botUserId)}>`, "g"), "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function truncateThreadContext(context: string): string {
+  if (context.length <= THREAD_CONTEXT_MAX_CHARS) {
+    return context;
+  }
+
+  const prefix = "...[older thread context truncated]\n";
+
+  return `${prefix}${context.slice(-(THREAD_CONTEXT_MAX_CHARS - prefix.length))}`;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 interface DiscordThreadReplyTarget {

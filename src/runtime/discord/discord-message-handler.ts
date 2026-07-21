@@ -14,6 +14,7 @@ export interface RuntimeDiscordMessageInput {
   mentionedUserIds?: readonly string[];
   sessionId?: string;
   projectId?: string;
+  conversationContext?: string;
   userRole?: unknown;
 }
 
@@ -106,7 +107,8 @@ export async function handleRuntimeDiscordMessage(
       role: roleFromRuntimeInput(body.userRole)
     },
     projectId: body.projectId,
-    content: route.content
+    content: route.content,
+    conversationContext: body.conversationContext
   });
 
   return {
@@ -134,6 +136,7 @@ export function isDiscordMessageBody(
     guildId?: unknown;
     content?: unknown;
     mentionedUserIds?: unknown;
+    conversationContext?: unknown;
   };
 
   return (
@@ -142,6 +145,8 @@ export function isDiscordMessageBody(
     typeof value.channelId === "string" &&
     (value.guildId === undefined || typeof value.guildId === "string") &&
     typeof value.content === "string" &&
+    (value.conversationContext === undefined ||
+      typeof value.conversationContext === "string") &&
     (value.mentionedUserIds === undefined ||
       (Array.isArray(value.mentionedUserIds) &&
         value.mentionedUserIds.every((id) => typeof id === "string")))

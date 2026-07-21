@@ -89,6 +89,59 @@ test("local runtime ignores non-mentioned Discord messages", async () => {
   });
 });
 
+test("runtime passes Discord thread context to chat responses", async () => {
+  let chatInput:
+    | {
+        content: string;
+        conversationContext?: string;
+      }
+    | undefined;
+  const runtime = {
+    discord: {
+      botUserId: "bot-1",
+      ownerUserIds: []
+    },
+    scheduleTimezone: "Asia/Seoul",
+    schedule: {
+      async buildBriefing() {
+        throw new Error("schedule should not handle this request");
+      }
+    },
+    chat: {
+      async respond(input: NonNullable<typeof chatInput>) {
+        chatInput = input;
+
+        return {
+          answer: "ok",
+          memoryCount: 0,
+          pipeline: {
+            steps: []
+          }
+        };
+      }
+    }
+  } as unknown as LocalRuntime;
+
+  const response = await handleRuntimeDiscordMessage(
+    {
+      id: "message-1",
+      authorId: "user-1",
+      channelId: "thread-1",
+      content: "<@bot-1> 이 작업 진행해줘",
+      mentionedUserIds: ["bot-1"],
+      conversationContext: "user: 자동화 대상은 뉴스 브리핑이다."
+    },
+    runtime
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(chatInput?.content, "이 작업 진행해줘");
+  assert.equal(
+    chatInput?.conversationContext,
+    "user: 자동화 대상은 뉴스 브리핑이다."
+  );
+});
+
 test("runtime answers schedule mentions from Google Calendar before LLM", async () => {
   let briefingInput:
     | {

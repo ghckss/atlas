@@ -394,17 +394,21 @@ test("HermesChatService records conversation and returns pipeline output", async
       role: "developer"
     },
     projectId: "project-a",
-    content: "뉴스 요약"
+    content: "뉴스 요약",
+    conversationContext: "user: 이전 thread에서 자동화 대상은 뉴스 브리핑이라고 말했다."
   });
 
   assert.equal(response.memoryCount, 1);
   assert.match(response.answer, /researcher handled/);
+  assert.match(response.answer, /\[Discord Thread Context\]/);
+  assert.match(response.answer, /자동화 대상은 뉴스 브리핑/);
   assert.match(response.answer, /\[External Memory\]/);
   assert.match(response.answer, /\[Session History\]/);
   assert.deepEqual(
     chatHistory.messages.map((message) => message.role),
     ["user", "assistant"]
   );
+  assert.equal(chatHistory.messages[0].content, "뉴스 요약");
 });
 
 test("ScheduleService creates schedule events directly in Google Calendar", async () => {
